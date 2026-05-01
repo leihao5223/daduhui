@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/layout/PageHeader';
 import { apiGet } from '../api/http';
 import { getToken } from '../lib/auth';
+import { walletContent } from '../content/wallet';
 
 type RecordRow = { id: string; time: string; type: string; amount: string; status: string };
+
+const copy = walletContent.records;
 
 const AssetRecordsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -17,13 +20,13 @@ const AssetRecordsPage: React.FC = () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const r = await apiGet<{ success?: boolean; list?: RecordRow[]; message?: string }>(
+      const res = await apiGet<{ success?: boolean; list?: RecordRow[]; message?: string }>(
         '/api/me/wallet-records?limit=200',
       );
-      if (r.success && Array.isArray(r.list)) {
-        setRows(r.list);
+      if (res.success && Array.isArray(res.list)) {
+        setRows(res.list);
       } else {
-        setErrorMsg(r.message || '加载失败');
+        setErrorMsg(res.message || copy.loadFail);
         setRows([]);
       }
     } catch (e: unknown) {
@@ -45,13 +48,13 @@ const AssetRecordsPage: React.FC = () => {
   if (!signedIn) {
     return (
       <div className="dx-page">
-        <PageHeader title="资金记录" backTo="/profile" />
+        <PageHeader title={copy.pageTitle} backTo="/profile" />
         <main className="dx-page-main">
           <section className="dh-gate-card">
-            <p className="dh-gate-title">请先登录</p>
-            <p className="dh-gate-desc">登录后可查看 `/api/me/wallet-records` 资金流水。</p>
+            <p className="dh-gate-title">{copy.gateTitle}</p>
+            <p className="dh-gate-desc">{copy.gateDesc}</p>
             <button type="button" className="dx-btn-primary" onClick={() => navigate('/')}>
-              返回首页
+              {copy.backHome}
             </button>
           </section>
         </main>
@@ -61,31 +64,31 @@ const AssetRecordsPage: React.FC = () => {
 
   return (
     <div className="dx-page">
-      <PageHeader title="资金记录" backTo="/profile" />
+      <PageHeader title={copy.pageTitle} backTo="/profile" />
       <main className="dx-page-main">
         <p className="dx-hint">
-          {loading ? '加载中…' : errorMsg ? errorMsg : '数据来自服务端资金流水。'}
+          {loading ? copy.loading : errorMsg ? errorMsg : copy.fromServer}
         </p>
         {!loading ? (
           <button type="button" className="dx-btn-ghost" onClick={() => void load()}>
-            刷新
+            {copy.refresh}
           </button>
         ) : null}
         <div className="dx-table-wrap">
           <table className="dx-table">
             <thead>
               <tr>
-                <th>时间</th>
-                <th>类型</th>
-                <th>金额</th>
-                <th>状态</th>
+                <th>{copy.table.time}</th>
+                <th>{copy.table.type}</th>
+                <th>{copy.table.amount}</th>
+                <th>{copy.table.status}</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && !loading ? (
                 <tr>
                   <td colSpan={4}>
-                    <span style={{ opacity: 0.7 }}>暂无记录</span>
+                    <span style={{ opacity: 0.7 }}>{copy.empty}</span>
                   </td>
                 </tr>
               ) : null}

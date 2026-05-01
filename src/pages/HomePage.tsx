@@ -2,8 +2,7 @@ import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Banner from '../components/Banner';
 import GameCategory from '../components/GameCategory';
-
-const PENDING_INVITE_KEY = 'daduhui_pending_invite';
+import { STORAGE_KEYS } from '../config/constants';
 
 const HomePage: React.FC = () => {
   const location = useLocation();
@@ -13,7 +12,7 @@ const HomePage: React.FC = () => {
     const invite = q.get('invite');
     if (invite && invite.trim()) {
       try {
-        sessionStorage.setItem(PENDING_INVITE_KEY, invite.trim());
+        sessionStorage.setItem(STORAGE_KEYS.pendingInvite, invite.trim());
       } catch {
         /* ignore */
       }

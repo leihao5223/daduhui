@@ -1,14 +1,11 @@
 import { getToken } from '../lib/auth';
+import { buildApiUrl } from '../config/env';
+
+export { buildApiUrl } from '../config/env';
 
 /**
- * 留空时走同域 + webpack devServer 代理（/api -> localhost:3301）。
- * 直连后端且已配置 CORS 时可在构建前设置环境变量 `API_BASE=http://host:port`（无尾斜杠）。
+ * 玩家接口：路径会经 `buildApiUrl` 拼接 `API_BASE`（构建时注入），与管理员 `adminFetch` 同源策略一致。
  */
-const API_BASE = (typeof process !== 'undefined' && process.env.API_BASE
-  ? String(process.env.API_BASE)
-  : ''
-).replace(/\/$/, '');
-
 function parseErrorMessageFromBody(text: string, status: number): string {
   const t = text.trim();
   if (!t) {
@@ -16,12 +13,12 @@ function parseErrorMessageFromBody(text: string, status: number): string {
       return '服务暂不可用（上游未响应）';
     }
     if (status === 504) {
-      return '网关超时：请确认 API 已启动。开发时若未起后端，可执行 npm run dev:mock 使用本地模拟接口。';
+      return '网关超时：请确认 API 已启动。本地可执行 npm run dev:mock 使用模拟接口。';
     }
-    return `请求失败（HTTP ${status}）。本地开发未启动后端时，请执行 npm run dev:mock；已启动后端时请确认 API 监听 3301 且与 webpack 代理一致。`;
+    return `请求失败（HTTP ${status}）。请确认已配置 API 地址（API_BASE 或同源 /api 反代）且服务可用。`;
   }
   if (t.startsWith('<!DOCTYPE') || t.startsWith('<html')) {
-    return '接口未返回数据（可能未启动 API 或代理未生效）';
+    return '接口未返回数据（可能将 /api 指到了静态页，请检查部署与反向代理）';
   }
   try {
     const j = JSON.parse(t) as { message?: string; error?: string; msg?: string; detail?: string };
@@ -55,7 +52,7 @@ export async function apiFetch<T = unknown>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
-  const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
+  const url = buildApiUrl(path);
 
   try {
     const response = await fetch(url, {
@@ -78,20 +75,16 @@ export async function apiFetch<T = unknown>(
     try {
       return JSON.parse(text) as T;
     } catch {
-      throw new Error(
-        '响应不是有效 JSON。请确认通过 npm run dev 打开且已配置 /api 代理，或检查 API_BASE',
-      );
+      throw new Error('响应不是有效 JSON。请确认 API_BASE 或 /api 代理指向后端。');
     }
   } catch (err: unknown) {
     clearTimeout(timer);
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('请求超时，请检查网络与后端服务（默认本机 http://localhost:3301）');
+      throw new Error('请求超时，请检查网络与 API 服务。');
     }
     const msg = err instanceof Error ? err.message : String(err);
     if (msg === 'Failed to fetch' || msg.includes('Load failed') || msg.includes('NetworkError')) {
-      throw new Error(
-        '无法连接服务器。请确认后端 API 已启动，并使用 npm run dev（代理 /api）或配置网关转发 /api',
-      );
+      throw new Error('无法连接服务器。请确认 API 可访问并已配置 CORS / 同源反代。');
     }
     throw err;
   }

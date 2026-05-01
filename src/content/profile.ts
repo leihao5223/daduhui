@@ -1,0 +1,15 @@
+export const profileContent = {
+  pageTitle: '个人中心',
+  gateTitle: '请先登录',
+  gateDesc: '登录后可查看余额、提现、资金记录与代理入口。',
+  backHome: '返回首页',
+  loading: '加载中…',
+  balanceLabel: '账户余额',
+  recharge: '充值',
+  withdraw: '提现',
+  fundRecords: '资金记录',
+  menuEyebrow: '服务',
+  onlineSupport: '在线客服',
+  agentCenter: '代理中心',
+  logout: '退出登录',
+} as const;

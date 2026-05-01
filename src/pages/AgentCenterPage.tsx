@@ -8,6 +8,7 @@ import {
   AGENT_TOTAL_REBATE_CAP,
   agentRebateCategories,
 } from '../config/agentRebate';
+import { agentContent } from '../content/agent';
 
 type InviteCodeRow = {
   id: string;
@@ -172,9 +173,9 @@ const AgentCenterPage: React.FC = () => {
     <div className="dx-page dx-page--agent">
       <header className="dx-agent-head">
         <button type="button" className="dx-agent-back" onClick={() => navigate(-1)}>
-          ← 返回
+          {agentContent.back}
         </button>
-        <h1 className="dx-agent-title">代理中心 · 默认抽佣</h1>
+        <h1 className="dx-agent-title">{agentContent.pageHead}</h1>
       </header>
 
       <main className="dx-page-main dx-agent-main">

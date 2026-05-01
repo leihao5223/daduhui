@@ -5,7 +5,9 @@ import { apiGet, apiPost } from '../api/http';
 import { getToken } from '../lib/auth';
 import { useSupportChat } from '../context/SupportChatContext';
 import { PageHeader } from '../components/layout/PageHeader';
+import { walletContent } from '../content/wallet';
 
+const w = walletContent.withdraw;
 type WithdrawMethodType = 'alipay' | 'wechat' | 'usdt';
 type BoundWithdrawMethod = {
   id: string;
@@ -158,20 +160,20 @@ const WithdrawPage: React.FC = () => {
     setErrorMsg(null);
 
     if (!amount || Number(amount) <= 0) {
-      setErrorMsg('请输入有效金额');
+      setErrorMsg(w.amountError);
       return;
     }
     if (Number(amount) < 100) {
-      setErrorMsg('单笔提现金额须不少于 100 元');
+      setErrorMsg(w.minAmountError);
       return;
     }
 
     if (!password || password.length < 6) {
-      setErrorMsg('请输入交易密码');
+      setErrorMsg(w.pwdError);
       return;
     }
     if (!selectedMethod) {
-      setErrorMsg('请先选择收款方式');
+      setErrorMsg(w.methodError);
       return;
     }
 
@@ -200,7 +202,7 @@ const WithdrawPage: React.FC = () => {
         openChat();
         navigate('/wallet/records');
       } else {
-        setErrorMsg(data.message || '取款申请失败');
+        setErrorMsg(data.message || w.requestFail);
       }
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : '网络错误');
@@ -212,13 +214,13 @@ const WithdrawPage: React.FC = () => {
   if (!signedIn) {
     return (
       <div className="dx-page">
-        <PageHeader title="提现" backTo="/" />
+        <PageHeader title={w.pageTitle} backTo="/" />
         <main className="dx-page-main">
           <section className="dh-gate-card">
-            <p className="dh-gate-title">请先登录</p>
-            <p className="dh-gate-desc">登录后方可提交取款申请（与星彩后端 `/api/withdraw/request` 一致）。</p>
+            <p className="dh-gate-title">{w.gateTitle}</p>
+            <p className="dh-gate-desc">{w.gateDesc}</p>
             <button type="button" className="dx-btn-primary" onClick={() => navigate('/')}>
-              返回首页
+              {w.backHome}
             </button>
           </section>
         </main>
@@ -228,7 +230,7 @@ const WithdrawPage: React.FC = () => {
 
   return (
     <div className="dx-page">
-      <PageHeader title="提现" backTo="/profile" />
+      <PageHeader title={w.pageTitle} backTo="/profile" />
       <main className="dx-page-main">
         <section className="dx-card dx-withdraw-card">
           <p className="dx-card-label">取款方式</p>

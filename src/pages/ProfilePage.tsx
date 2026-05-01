@@ -12,6 +12,7 @@ import { apiGet } from '../api/http';
 import { getToken, logout } from '../lib/auth';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useSupportChat } from '../context/SupportChatContext';
+import { profileContent } from '../content/profile';
 
 type MeSummary = {
   nameMask?: string;
@@ -62,13 +63,13 @@ const ProfilePage: React.FC = () => {
   if (!signedIn) {
     return (
       <div className="dx-page">
-        <PageHeader title="个人中心" backTo="/" />
+        <PageHeader title={profileContent.pageTitle} backTo="/" />
         <main className="dx-page-main">
           <section className="dh-gate-card">
-            <p className="dh-gate-title">请先登录</p>
-            <p className="dh-gate-desc">登录后可查看余额、申请提现并使用完整资金功能（接口与星彩 `/api/me/summary` 一致）。</p>
+            <p className="dh-gate-title">{profileContent.gateTitle}</p>
+            <p className="dh-gate-desc">{profileContent.gateDesc}</p>
             <button type="button" className="dx-btn-primary" onClick={() => navigate('/')}>
-              返回首页
+              {profileContent.backHome}
             </button>
           </section>
         </main>
@@ -79,9 +80,9 @@ const ProfilePage: React.FC = () => {
   if (loading) {
     return (
       <div className="dx-page">
-        <PageHeader title="个人中心" backTo="/" />
+        <PageHeader title={profileContent.pageTitle} backTo="/" />
         <main className="dx-page-main">
-          <p className="dx-loading-line">加载中…</p>
+          <p className="dx-loading-line">{profileContent.loading}</p>
         </main>
       </div>
     );
@@ -96,7 +97,7 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="dx-page">
-      <PageHeader title="个人中心" backTo="/" />
+      <PageHeader title={profileContent.pageTitle} backTo="/" />
       <main className="dx-page-main">
         <section className="dx-profile-card">
           <div className="dx-profile-hero">
@@ -106,7 +107,7 @@ const ProfilePage: React.FC = () => {
             <div>
               <p className="dx-profile-id">{displayId}</p>
               <p className="dx-profile-name">{displayName}</p>
-              <p className="dx-profile-balance-label">账户余额</p>
+              <p className="dx-profile-balance-label">{profileContent.balanceLabel}</p>
               <p className="dx-profile-balance">¥{balance}</p>
             </div>
           </div>
@@ -115,34 +116,34 @@ const ProfilePage: React.FC = () => {
         <div className="dx-profile-cta-row">
           <Link to="/deposit" className="dx-cta dx-cta--gold">
             <ArrowDownToLine size={20} />
-            充值
+            {profileContent.recharge}
           </Link>
           <Link to="/withdraw" className="dx-cta dx-cta--outline">
             <ArrowUpFromLine size={20} />
-            提现
+            {profileContent.withdraw}
           </Link>
           <Link to="/wallet/records" className="dx-cta dx-cta--outline">
             <FileBarChart2 size={20} />
-            资金记录
+            {profileContent.fundRecords}
           </Link>
         </div>
 
         <section className="dx-menu-block">
-          <p className="dx-menu-eyebrow">服务</p>
+          <p className="dx-menu-eyebrow">{profileContent.menuEyebrow}</p>
           <button type="button" className="dx-menu-row" onClick={() => openChat()}>
             <Headphones size={20} />
-            <span>在线客服</span>
+            <span>{profileContent.onlineSupport}</span>
             <span className="dx-menu-arrow">›</span>
           </button>
           <Link to="/agent" className="dx-menu-row">
             <Coins size={20} />
-            <span>代理中心</span>
+            <span>{profileContent.agentCenter}</span>
             <span className="dx-menu-arrow">›</span>
           </Link>
         </section>
 
         <button type="button" className="dx-btn-logout" onClick={handleLogout}>
-          退出登录
+          {profileContent.logout}
         </button>
       </main>
     </div>

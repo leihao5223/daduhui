@@ -1,18 +1,20 @@
 import React from 'react';
+import { type PlaceholderPageKey, placeholderContent } from '../content/placeholders';
 
 interface PlaceholderPageProps {
-  title: string;
+  pageKey: PlaceholderPageKey;
 }
 
 /**
- * 各业务模块占位页，后续替换为真实功能。
+ * 尚未接入完整业务的模块：文案集中在 `src/content/placeholders.ts`。
  */
-const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ title }) => {
+const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ pageKey }) => {
+  const { title, description } = placeholderContent[pageKey];
   return (
     <section className="page-placeholder">
       <div className="page-placeholder-inner">
         <h1 className="page-placeholder-title">{title}</h1>
-        <p className="page-placeholder-desc">该模块开发中，敬请期待。</p>
+        <p className="page-placeholder-desc">{description}</p>
       </div>
     </section>
   );

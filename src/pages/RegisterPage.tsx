@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { apiGet, apiPost } from '../api/http';
 import { isAuthenticated, setToken } from '../lib/auth';
 import { CyberAuthShell } from '../components/auth/CyberAuthShell';
+import { STORAGE_KEYS } from '../config/constants';
+import { authContent } from '../content/auth';
 import '../styles/cyber-chinese-login.css';
 
 interface SecurityPreset {
@@ -47,7 +49,7 @@ const RegisterPage: React.FC = () => {
       return;
     }
     try {
-      const pending = sessionStorage.getItem('daduhui_pending_invite');
+      const pending = sessionStorage.getItem(STORAGE_KEYS.pendingInvite);
       if (pending) {
         setInviteCode(pending.trim());
       }
@@ -101,8 +103,8 @@ const RegisterPage: React.FC = () => {
   if (!presets.length) {
     return (
       <CyberAuthShell
-        mainTitle="创建账户"
-        subtitle="账号 · 密码 · 密保"
+        mainTitle={authContent.register.title}
+        subtitle={authContent.register.subtitle}
         scroll
         titleClassName="main-title--sm"
       >
@@ -113,7 +115,7 @@ const RegisterPage: React.FC = () => {
           transition={{ duration: 0.6 }}
         >
           <p style={{ textAlign: 'center', color: 'rgba(201, 162, 39, 0.75)', padding: '2.5rem 0.5rem' }}>
-            加载密保问题…
+            {authContent.register.loadingPresets}
           </p>
         </motion.div>
       </CyberAuthShell>
@@ -193,8 +195,8 @@ const RegisterPage: React.FC = () => {
 
   return (
     <CyberAuthShell
-      mainTitle="创建账户"
-      subtitle="账号 · 密码 · 密保"
+      mainTitle={authContent.register.title}
+      subtitle={authContent.register.subtitle}
       scroll
       titleClassName="main-title--sm"
     >

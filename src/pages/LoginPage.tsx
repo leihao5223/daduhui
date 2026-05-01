@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { apiPost } from '../api/http';
 import { isAuthenticated, setToken } from '../lib/auth';
 import { CyberAuthShell } from '../components/auth/CyberAuthShell';
+import { STORAGE_KEYS } from '../config/constants';
+import { authContent } from '../content/auth';
 import '../styles/cyber-chinese-login.css';
 
 const LoginPage: React.FC = () => {
@@ -37,7 +39,7 @@ const LoginPage: React.FC = () => {
     }
 
     try {
-      const raw = localStorage.getItem('xingcai_remember');
+      const raw = localStorage.getItem(STORAGE_KEYS.rememberLogin);
       if (raw) {
         const j = JSON.parse(raw) as { nickname?: string; password?: string };
         if (j.nickname) setNickname(j.nickname);
@@ -79,7 +81,7 @@ const LoginPage: React.FC = () => {
 
     if (!awaitHuman) {
       if (!nickname.trim() || !password) {
-        setError('请输入账号和密码');
+        setError(authContent.errors.needCredentials);
         return;
       }
 
@@ -149,7 +151,7 @@ const LoginPage: React.FC = () => {
       if (remember) {
         try {
           localStorage.setItem(
-            'xingcai_remember',
+            STORAGE_KEYS.rememberLogin,
             JSON.stringify({
               nickname: nickname.trim(),
               password,
@@ -160,7 +162,7 @@ const LoginPage: React.FC = () => {
         }
       } else {
         try {
-          localStorage.removeItem('xingcai_remember');
+          localStorage.removeItem(STORAGE_KEYS.rememberLogin);
         } catch {
           /* ignore */
         }
@@ -184,7 +186,7 @@ const LoginPage: React.FC = () => {
   }
 
   return (
-    <CyberAuthShell mainTitle="大都汇舞台" subtitle="想富你就来">
+    <CyberAuthShell mainTitle={authContent.brandStage} subtitle={authContent.login.subtitle}>
       <motion.div
         className="login-card"
         initial={{ opacity: 0, y: 30 }}

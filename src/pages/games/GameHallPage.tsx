@@ -2,24 +2,27 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/layout/PageHeader';
 import type { PlatformGameEntry } from '../../config/platformGameCatalog';
+import { gamesContent } from '../../content/games';
+
+const { hall } = gamesContent;
 
 const GameHallPage: React.FC<{ game: PlatformGameEntry }> = ({ game }) => {
   const navigate = useNavigate();
 
   return (
     <div className="dx-page game-hall-page">
-      <PageHeader title={`${game.name} · 大厅`} backTo="/" />
+      <PageHeader title={`${game.name}${hall.titleSuffix}`} backTo="/" />
       <main className="dx-page-main">
         <section className="dx-card">
           <p className="dx-hint">
-            您已进入「{game.name}」游戏大厅。完整玩法与盘口接入中，可先体验已开放游戏。
+            {hall.intro(game.name)} {hall.detail}
           </p>
           <div className="game-hall-actions">
             <button type="button" className="dx-btn-primary" onClick={() => navigate('/game/hk-marksix')}>
-              前往香港六合彩
+              {hall.goHk6}
             </button>
             <button type="button" className="dx-btn-ghost" onClick={() => navigate(-1)}>
-              返回上一页
+              {hall.back}
             </button>
           </div>
         </section>

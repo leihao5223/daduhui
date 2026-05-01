@@ -2,7 +2,7 @@ import { useState, FormEvent, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppWindow, FileBarChart2, MessageSquare, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { apiPost } from '../../api/http';
+import { apiPost, buildApiUrl } from '../../api/http';
 import '../../styles/admin-console.css';
 
 const ADMIN_TOKEN_KEY = 'admin_token';
@@ -14,7 +14,7 @@ async function adminFetch<T = unknown>(path: string, options: RequestInit = {}):
     ...(options.headers as Record<string, string>),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(path, { ...options, headers });
+  const res = await fetch(buildApiUrl(path), { ...options, headers });
   const text = await res.text();
   let body: Record<string, unknown> = {};
   if (text) {

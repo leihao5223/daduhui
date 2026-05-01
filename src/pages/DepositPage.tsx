@@ -4,20 +4,11 @@ import { apiGet, apiPost } from '../api/http';
 import { getToken } from '../lib/auth';
 import { useSupportChat } from '../context/SupportChatContext';
 import { PageHeader } from '../components/layout/PageHeader';
+import { walletContent } from '../content/wallet';
 
-type PayMethod = 'alipay' | 'wechat' | 'usdt';
+type PayMethod = keyof typeof walletContent.deposit.payTabLabels;
 
-const payMethodLabel: Record<PayMethod, string> = {
-  alipay: '支付宝',
-  wechat: '微信',
-  usdt: 'USDT（赠送1%）',
-};
-
-const payMethodMessageLabel: Record<PayMethod, string> = {
-  alipay: '支付宝',
-  wechat: '微信',
-  usdt: 'USDT',
-};
+const c = walletContent.deposit;
 
 const DepositPage: React.FC = () => {
   const navigate = useNavigate();
@@ -43,7 +34,7 @@ const DepositPage: React.FC = () => {
         payMethod,
       });
       if (!dep.success) {
-        setErrorMsg(dep.message || '充值提交失败');
+        setErrorMsg(dep.message || c.errorFallback);
         return;
       }
 
@@ -56,7 +47,8 @@ const DepositPage: React.FC = () => {
         /* ignore */
       }
 
-      const message = `id${userId}${payMethodMessageLabel[payMethod]}存款${Number(amount)}，请给我充值账户。`;
+      const msgLabel = c.payMessageLabels[payMethod];
+      const message = `id${userId}${msgLabel}存款${Number(amount)}，请给我充值账户。`;
       setPrefill(message);
       setAutoSend(true);
       openChat();
@@ -70,13 +62,13 @@ const DepositPage: React.FC = () => {
   if (!signedIn) {
     return (
       <div className="dx-page">
-        <PageHeader title="充值" backTo="/" />
+        <PageHeader title={c.pageTitle} backTo="/" />
         <main className="dx-page-main">
           <section className="dh-gate-card">
-            <p className="dh-gate-title">请先登录</p>
-            <p className="dh-gate-desc">登录后方可演示即时到账充值并写入资金流水（`/api/deposit/submit`）。</p>
+            <p className="dh-gate-title">{c.gateTitle}</p>
+            <p className="dh-gate-desc">{c.gateDesc}</p>
             <button type="button" className="dx-btn-primary" onClick={() => navigate('/')}>
-              返回首页
+              {c.backHome}
             </button>
           </section>
         </main>
@@ -84,14 +76,16 @@ const DepositPage: React.FC = () => {
     );
   }
 
+  const payKeys = Object.keys(c.payTabLabels) as PayMethod[];
+
   return (
     <div className="dx-page">
-      <PageHeader title="充值" backTo="/" />
+      <PageHeader title={c.pageTitle} backTo="/" />
       <main className="dx-page-main">
         <section className="dx-card">
-          <p className="dx-card-label">支付方式</p>
+          <p className="dx-card-label">{c.payLabel}</p>
           <div className="dx-pay-tabs" role="tablist">
-            {(Object.keys(payMethodLabel) as PayMethod[]).map((k) => (
+            {payKeys.map((k) => (
               <button
                 key={k}
                 type="button"
@@ -100,7 +94,7 @@ const DepositPage: React.FC = () => {
                 aria-selected={payMethod === k}
                 onClick={() => setPayMethod(k)}
               >
-                {payMethodLabel[k]}
+                {c.payTabLabels[k]}
               </button>
             ))}
           </div>
@@ -108,7 +102,7 @@ const DepositPage: React.FC = () => {
 
         <form className="dx-form" onSubmit={handleSubmit}>
           <label className="dx-field">
-            <span className="dx-field-label">存款金额（元）</span>
+            <span className="dx-field-label">{c.amountLabel}</span>
             <input
               className="dx-input"
               type="number"
@@ -116,13 +110,13 @@ const DepositPage: React.FC = () => {
               step="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="请输入存款金额"
+              placeholder={c.amountPlaceholder}
               required
             />
           </label>
 
           <section className="dx-card">
-            <p className="dx-card-label">快捷金额</p>
+            <p className="dx-card-label">{c.quickLabel}</p>
             <div className="dx-quick-row">
               {quickAmounts.map((amt) => (
                 <button
@@ -139,16 +133,14 @@ const DepositPage: React.FC = () => {
 
           {errorMsg ? <p className="dx-hint" style={{ color: '#c62828' }}>{errorMsg}</p> : null}
           <button type="submit" className="dx-btn-primary" disabled={submitting}>
-            {submitting ? '处理中…' : '确定存款'}
+            {submitting ? c.submitting : c.submit}
           </button>
-          <p className="dx-hint">
-            将先调用 `/api/deposit/submit` 演示即时入账并记流水，再打开客服会话发送充值留言。
-          </p>
+          <p className="dx-hint">{c.hintAfterApi}</p>
         </form>
 
         <section className="dx-deposit-history">
           <button type="button" className="dx-btn-ghost" onClick={() => navigate('/wallet/records')}>
-            查看存款记录 →
+            {c.recordsLink}
           </button>
         </section>
       </main>

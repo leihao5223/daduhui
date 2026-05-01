@@ -4,6 +4,7 @@ import { hkMarkSixPlayCatalog, lineKey } from '../../games/hkMarkSix/playCatalog
 import { apiGet, apiPost } from '../../api/http';
 import { getToken } from '../../lib/auth';
 import '../../styles/hk-marksix-game.css';
+import { gamesContent } from '../../content/games';
 
 type Hk6Status = {
   success?: boolean;
@@ -32,6 +33,7 @@ function ballTone(num: string): 'r' | 'b' | 'g' {
 }
 
 const QUICK_STAKES = [10, 20, 50, 100, 200];
+const hk = gamesContent.hk6;
 
 const HkMarkSixGamePage: React.FC = () => {
   const navigate = useNavigate();
@@ -135,16 +137,16 @@ const HkMarkSixGamePage: React.FC = () => {
 
   const handleBet = async () => {
     if (!getToken()) {
-      window.alert('请先登录后再下注');
+      window.alert(hk.alertLogin);
       navigate('/');
       return;
     }
     if (selectedCount === 0) {
-      window.alert('请先选择注项');
+      window.alert(hk.alertNoSelection);
       return;
     }
     if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
-      window.alert('请输入有效下注金额');
+      window.alert(hk.alertBadStake);
       return;
     }
     setBetting(true);
@@ -155,14 +157,14 @@ const HkMarkSixGamePage: React.FC = () => {
         totalAmount: totalStake,
       });
       if (data.success) {
-        window.alert(`下注成功，合计 ¥${totalStake.toFixed(2)}`);
+        window.alert(hk.betSuccess(totalStake.toFixed(2)));
         setSelectedKeys(new Set());
         void refreshBalance();
       } else {
-        window.alert(data.message || '下注失败');
+        window.alert(data.message || hk.betFail);
       }
     } catch (e: unknown) {
-      window.alert(e instanceof Error ? e.message : '网络错误');
+      window.alert(e instanceof Error ? e.message : hk.networkError);
     } finally {
       setBetting(false);
     }
@@ -172,38 +174,38 @@ const HkMarkSixGamePage: React.FC = () => {
     <div className="hk6-game">
       <header className="hk6-row1">
         <div className="hk6-row1-left">
-          <button type="button" className="hk6-back" onClick={() => navigate(-1)} aria-label="返回">
+          <button type="button" className="hk6-back" onClick={() => navigate(-1)} aria-label={hk.ariaBack}>
             ←
           </button>
           <div className="hk6-title-block">
-            <h1 className="hk6-title">香港六合彩</h1>
+            <h1 className="hk6-title">{hk.title}</h1>
             <p className="hk6-sub">
               {status?.currentPeriod
-                ? `投注期 ${status.currentPeriod} · 演示封盘倒计时 ${status.countdownSec ?? '—'}s`
-                : '正在同步状态…'}
+                ? hk.subtitle(status.currentPeriod, status.countdownSec ?? '—')
+                : hk.subtitleLoading}
             </p>
           </div>
         </div>
         <div className="hk6-stats">
           <span>
-            余额 <b>{balance != null ? balance.toFixed(2) : '—'}</b>
+            {hk.statsBalance} <b>{balance != null ? balance.toFixed(2) : hk.statsDash}</b>
           </span>
           <span>
-            流水 <b>—</b>
+            {hk.statsFlow} <b>{hk.statsDash}</b>
           </span>
           <span>
-            输赢 <b>—</b>
+            {hk.statsPnl} <b>{hk.statsDash}</b>
           </span>
           <span>
-            回水 <b>—</b>
+            {hk.statsRebate} <b>{hk.statsDash}</b>
           </span>
         </div>
       </header>
 
-      <section className="hk6-row2" aria-label="上期开奖">
+      <section className="hk6-row2" aria-label={hk.row2Aria}>
         <div className="hk6-prev-draw">
           <div>
-            上期 <strong>{status?.lastDraw?.period ?? '—'}</strong>
+            {hk.prevDraw} <strong>{status?.lastDraw?.period ?? '—'}</strong>
           </div>
           <div className="hk6-balls">
             {lastDrawBalls.length ? (
@@ -213,16 +215,16 @@ const HkMarkSixGamePage: React.FC = () => {
                 </span>
               ))
             ) : (
-              <span style={{ opacity: 0.5 }}>暂无开奖数据</span>
+              <span style={{ opacity: 0.5 }}>{hk.noDraw}</span>
             )}
           </div>
         </div>
         <button type="button" className="hk6-history-btn" onClick={() => setHistoryOpen(true)}>
-          历史开奖
+          {hk.historyBtn}
         </button>
       </section>
 
-      <section className="hk6-bet-plate" aria-label="下注盘">
+      <section className="hk6-bet-plate" aria-label={hk.betPlateAria}>
         <aside className="hk6-sidebar">
           {hkMarkSixPlayCatalog.map((cat) => (
             <button
@@ -263,12 +265,12 @@ const HkMarkSixGamePage: React.FC = () => {
         </div>
       </section>
 
-      <section className="hk6-row4" aria-label="投注汇总">
+      <section className="hk6-row4" aria-label={hk.summaryAria}>
         <span>
-          下注总额：<strong>¥{totalStake.toFixed(2)}</strong>
+          {hk.betSummary}：<strong>¥{totalStake.toFixed(2)}</strong>
         </span>
         <span>
-          共 <strong>{selectedCount}</strong> 注单
+          {hk.totalTicketsPrefix} <strong>{selectedCount}</strong> {hk.totalTicketsSuffix}
         </span>
       </section>
 
@@ -289,13 +291,13 @@ const HkMarkSixGamePage: React.FC = () => {
             step={1}
             value={unitAmount}
             onChange={(e) => setUnitAmount(Number(e.target.value) || 0)}
-            aria-label="单注金额"
+            aria-label={hk.stakeInputAria}
           />
           <button type="button" className="hk6-btn-bet" onClick={() => void handleBet()} disabled={betting}>
-            {betting ? '提交中…' : '下注'}
+            {betting ? hk.betting : hk.bet}
           </button>
           <button type="button" className="hk6-btn-reset" onClick={handleReset}>
-            重置
+            {hk.reset}
           </button>
         </div>
       </footer>
@@ -303,12 +305,12 @@ const HkMarkSixGamePage: React.FC = () => {
       {historyOpen ? (
         <div className="hk6-modal-back" role="dialog" aria-modal="true" onClick={() => setHistoryOpen(false)}>
           <div className="hk6-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>历史开奖</h3>
+            <h3>{hk.historyTitle}</h3>
             <div className="hk6-modal-list">
               {historyLoading ? (
-                <div className="hk6-modal-row">加载中…</div>
+                <div className="hk6-modal-row">{hk.historyLoading}</div>
               ) : historyRows.length === 0 ? (
-                <div className="hk6-modal-row">暂无记录</div>
+                <div className="hk6-modal-row">{hk.historyEmpty}</div>
               ) : (
                 historyRows.map((row) => (
                   <div key={`${row.period}-${row.time}`} className="hk6-modal-row">
@@ -320,7 +322,7 @@ const HkMarkSixGamePage: React.FC = () => {
               )}
             </div>
             <button type="button" className="hk6-modal-close" onClick={() => setHistoryOpen(false)}>
-              关闭
+              {hk.close}
             </button>
           </div>
         </div>
