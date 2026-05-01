@@ -107,3 +107,6 @@ obj/
 
 # Cursor 技能说明（非运行必需）
 skills/
+
+# Cursor 本地项目配置
+.cursor/
