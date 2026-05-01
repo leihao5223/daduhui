@@ -23,8 +23,13 @@ function drawVisibleAtMs(draw) {
   const lagMs = lagSec() * 1000;
   if (!lagMs) return 0;
   if (draw.drawnAt) {
-    const t = new Date(draw.drawnAt).getTime();
-    if (!Number.isNaN(t)) return t + lagMs;
+    let t = new Date(draw.drawnAt).getTime();
+    if (!Number.isNaN(t)) {
+      const now = Date.now();
+      // 源站/时区解析成「未来」时，若仍按未来时间延后亮牌，会导致整期在上期区空白（尤其 HK6_LAG_STRICT=1）
+      if (t > now) t = now;
+      return t + lagMs;
+    }
   }
   return 0;
 }
@@ -60,16 +65,67 @@ function drawsForHistoryList(draws) {
   return vis;
 }
 
-/** 上期 / 历史接口：在纯号码之外附带生肖、半波、大小单双、七码总和等派生字段（与规则结算键一致） */
-function augmentDrawForClient(d) {
-  if (!d || !Array.isArray(d.balls) || d.special == null) return null;
+function asBall01to49(x) {
+  const n = Math.trunc(Number(String(x).trim()));
+  if (!Number.isFinite(n) || n < 1 || n > 49) return null;
+  return String(n).padStart(2, '0');
+}
+
+/** 统一号码形态，兼容同步/旧数据里数字或非标准数组 */
+function normalizeHk6DrawRow(d) {
+  if (!d) return null;
+  let ballsIn = d.balls;
+  if (!Array.isArray(ballsIn) && d.numbers && Array.isArray(d.numbers.main)) ballsIn = d.numbers.main;
+  if (!Array.isArray(ballsIn) || ballsIn.length < 6) return null;
+  const balls = [];
+  for (let i = 0; i < 6; i += 1) {
+    const b = asBall01to49(ballsIn[i]);
+    if (!b) return null;
+    balls.push(b);
+  }
+  const special = asBall01to49(d.special);
+  if (!special) return null;
   return {
     period: d.period,
-    balls: d.balls,
-    special: d.special,
+    balls,
+    special,
     drawnAt: d.drawnAt,
-    derived: rules.expandDrawForApi(d.balls, d.special),
+    ingestedAt: d.ingestedAt,
   };
+}
+
+function safeExpandDraw(balls, special) {
+  try {
+    return rules.expandDrawForApi(balls, special);
+  } catch {
+    return undefined;
+  }
+}
+
+/** 上期 / 历史接口：在纯号码之外附带生肖、半波、大小单双、七码总和等派生字段（与规则结算键一致） */
+function augmentDrawForClient(d) {
+  const row = normalizeHk6DrawRow(d);
+  if (row) {
+    const out = {
+      period: row.period,
+      balls: row.balls,
+      special: row.special,
+      drawnAt: row.drawnAt,
+    };
+    const derived = safeExpandDraw(row.balls, row.special);
+    if (derived) out.derived = derived;
+    return out;
+  }
+  if (!d || d.period == null || !Array.isArray(d.balls) || d.balls.length < 6 || d.special == null) return null;
+  const out = {
+    period: d.period,
+    balls: d.balls.slice(0, 6).map((x) => String(x).padStart(2, '0')),
+    special: String(d.special).padStart(2, '0'),
+    drawnAt: d.drawnAt,
+  };
+  const derived = safeExpandDraw(out.balls, out.special);
+  if (derived) out.derived = derived;
+  return out;
 }
 
 function enqueuePendingSettlement(store, drawRow, saveStore) {
@@ -240,14 +296,7 @@ function getStatus(store) {
     revealLagSec: lagSec(),
     currentPeriod: nextPeriod,
     countdownSec,
-    lastDraw: visible
-      ? {
-          period: visible.period,
-          balls: visible.balls,
-          special: visible.special,
-          drawnAt: visible.drawnAt,
-        }
-      : null,
+    lastDraw: augmentDrawForClient(visible),
     sync: {
       url: process.env.HK6_SYNC_URL || hkMarkSixSync.DEFAULT_SYNC_URL,
       enabled: process.env.HK6_EXTERNAL_SYNC !== '0',
@@ -266,13 +315,20 @@ function getHistory(store, limit) {
   const list = [...source].reverse().slice(0, lim);
   return {
     success: true,
-    list: list.map((d) => ({
-      period: d.period,
-      balls: [...d.balls, d.special].join(','),
-      numbers: { main: d.balls, special: d.special },
-      time: d.drawnAt ? new Date(d.drawnAt).toLocaleString('zh-CN') : '—',
-      derived: rules.expandDrawForApi(d.balls, d.special),
-    })),
+    list: list.map((d) => {
+      const norm = normalizeHk6DrawRow(d);
+      const main = norm ? norm.balls : Array.isArray(d.balls) ? d.balls : [];
+      const sp = norm ? norm.special : d.special != null ? asBall01to49(d.special) : null;
+      const ballsStr =
+        main.length === 6 && sp ? [...main, sp].join(',') : [...main, sp || ''].filter(Boolean).join(',');
+      return {
+        period: d.period,
+        balls: ballsStr,
+        numbers: { main, special: sp != null ? sp : d.special },
+        time: d.drawnAt ? new Date(d.drawnAt).toLocaleString('zh-CN') : '—',
+        derived: norm ? safeExpandDraw(norm.balls, norm.special) : undefined,
+      };
+    }),
   };
 }
 
