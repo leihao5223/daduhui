@@ -75,6 +75,12 @@ export async function apiFetch<T = unknown>(
     try {
       return JSON.parse(text) as T;
     } catch {
+      const trimmed = text.trim();
+      if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
+        throw new Error(
+          '接口返回了网页而不是 JSON（常见原因：只在 Vercel 部署了前端，/api 被静态站重写）。请在 Vercel 项目 Environment Variables 里设置 API_BASE 为公网上可直接访问的 Node 根地址（无尾斜杠，例如 https://api.你的域名），保存后重新 Deploy；或在本页上方把 window.__PANGXIE_API_BASE__ 改成同一地址后再构建。Node 后端需单独运行 pangxie/server。',
+        );
+      }
       throw new Error('响应不是有效 JSON。请确认 API_BASE 或 /api 代理指向后端。');
     }
   } catch (err: unknown) {

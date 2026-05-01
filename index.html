@@ -23,7 +23,12 @@
     }
   </style>
   <script>
-    /* 只有下面这种情况才要改：网页在一个域名、接口在另一个域名。填接口根地址，不要尾斜杠，例如 https://api.xxx.com */
+    /**
+     * 接口根地址（无尾斜杠）。留空则请求当前站点下的 /api（本地 dev 会代理到 Node；纯 Vercel 静态部署会变成整页 HTML，接口全废）。
+     * 仅 Vercel 预览：必须二选一——
+     * 1）Vercel → Settings → Environment Variables → 新增 API_BASE=https://你的公网Node （部署 pangxie/server 的机器）→ Redeploy；
+     * 2）或把下面改成同一地址后重新 build。
+     */
     window.__PANGXIE_API_BASE__ = '';
   </script>
   <script>
