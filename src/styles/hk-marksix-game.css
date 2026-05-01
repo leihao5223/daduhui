@@ -64,6 +64,11 @@
   color: rgba(245, 243, 236, 0.45);
 }
 
+.hk6-sync-hint {
+  color: rgba(197, 160, 89, 0.6);
+  font-size: 0.6rem;
+}
+
 .hk6-stats {
   display: grid;
   grid-template-columns: repeat(2, auto);

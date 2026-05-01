@@ -4,6 +4,7 @@
 const crypto = require('crypto');
 const rules = require('./hkMarkSixRules');
 const finance = require('./finance');
+const hkMarkSixSync = require('./hkMarkSixSync');
 
 function ensureHk6(store) {
   if (!store.hkMarkSix || typeof store.hkMarkSix !== 'object') {
@@ -77,6 +78,7 @@ function getStatus(store) {
   const m = /^HK(\d+)$/.exec(String(last.period || ''));
   const n = m ? Number(m[1]) : store.hkMarkSix.periodBase;
   const nextPeriod = `HK${n + 1}`;
+  const meta = store.hkMarkSix.meta || {};
   return {
     success: true,
     currentPeriod: nextPeriod,
@@ -86,6 +88,13 @@ function getStatus(store) {
       balls: last.balls,
       special: last.special,
       drawnAt: last.drawnAt,
+    },
+    sync: {
+      url: process.env.HK6_SYNC_URL || hkMarkSixSync.DEFAULT_SYNC_URL,
+      enabled: process.env.HK6_EXTERNAL_SYNC !== '0',
+      source: meta.lastSyncSource || null,
+      at: meta.lastSyncAt || null,
+      err: meta.lastSyncError || null,
     },
   };
 }
@@ -105,7 +114,7 @@ function getHistory(store, limit) {
   };
 }
 
-function maybeAdvanceDraw(store, saveStore) {
+function maybeAdvanceFake(store, saveStore) {
   ensureHk6(store);
   const cycle = 180;
   const now = Math.floor(Date.now() / 1000);
@@ -131,8 +140,24 @@ function maybeAdvanceDraw(store, saveStore) {
   }
 }
 
-function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
-  maybeAdvanceDraw(store, saveStore);
+async function refreshDraws(store, saveStore) {
+  ensureHk6(store);
+  if (process.env.HK6_EXTERNAL_SYNC === '0') {
+    maybeAdvanceFake(store, saveStore);
+    return;
+  }
+  const r = await hkMarkSixSync.tryIngestExternalDraw(store, saveStore, settleBetsForCompletedDraw);
+  if (!r.updated && process.env.HK6_SYNC_FALLBACK_FAKE === '1') {
+    maybeAdvanceFake(store, saveStore);
+  }
+}
+
+function maybeAdvanceDraw(store, saveStore) {
+  maybeAdvanceFake(store, saveStore);
+}
+
+async function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
+  await refreshDraws(store, saveStore);
   const linesIn = Array.isArray(body.lines) ? body.lines : [];
   const lines = [];
   for (const raw of linesIn) {
@@ -222,6 +247,7 @@ module.exports = {
   getStatus,
   getHistory,
   maybeAdvanceDraw,
+  refreshDraws,
   placeBet,
   getUserRoomStats,
   settleBetsForCompletedDraw,

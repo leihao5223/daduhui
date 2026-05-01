@@ -12,6 +12,13 @@ type Hk6Status = {
   success?: boolean;
   currentPeriod?: string;
   countdownSec?: number;
+  sync?: {
+    url?: string;
+    enabled?: boolean;
+    source?: string | null;
+    at?: string | null;
+    err?: string | null;
+  };
   lastDraw?: {
     period?: string;
     balls?: string[];
@@ -328,6 +335,12 @@ const HkMarkSixGamePage: React.FC = () => {
               {status?.currentPeriod
                 ? hk.subtitle(status.currentPeriod, status.countdownSec ?? '—')
                 : hk.subtitleLoading}
+              {status?.sync?.enabled && status.sync.source ? (
+                <span className="hk6-sync-hint">
+                  {' '}
+                  · {hk.syncSource}: {status.sync.source}
+                </span>
+              ) : null}
             </p>
           </div>
         </div>

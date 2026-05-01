@@ -577,7 +577,7 @@ const server = http.createServer(async (req, res) => {
 
     /** ----- GET /api/game/hk-marksix/status ----- */
     if (req.method === 'GET' && p === '/api/game/hk-marksix/status') {
-      hkMarkSix.maybeAdvanceDraw(store, saveStore);
+      await hkMarkSix.refreshDraws(store, saveStore);
       saveStore();
       json(res, 200, hkMarkSix.getStatus(store));
       return;
@@ -585,7 +585,7 @@ const server = http.createServer(async (req, res) => {
 
     /** ----- GET /api/game/hk-marksix/history ----- */
     if (req.method === 'GET' && p === '/api/game/hk-marksix/history') {
-      hkMarkSix.maybeAdvanceDraw(store, saveStore);
+      await hkMarkSix.refreshDraws(store, saveStore);
       saveStore();
       const q = new URL(req.url || '', 'http://x');
       const limit = q.searchParams.get('limit');
@@ -608,7 +608,7 @@ const server = http.createServer(async (req, res) => {
       const body = await parseBody(req);
       finance.ensureUserFinance(user, store);
       const ledgerAppend = (userId, entry) => finance.appendLedgerEntry(store, userId, entry);
-      const result = hkMarkSix.placeBet(store, uid, body, ledgerAppend, saveStore, user);
+      const result = await hkMarkSix.placeBet(store, uid, body, ledgerAppend, saveStore, user);
       if (!result.ok) {
         json(res, result.status, result.body);
         return;

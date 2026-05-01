@@ -11,6 +11,7 @@ export const gamesContent = {
     subtitleLoading: '正在同步状态…',
     subtitle: (period: string, sec: number | string) =>
       `投注期 ${period} · 演示封盘倒计时 ${sec}s`,
+    syncSource: '同步',
     statsBalance: '余额',
     statsFlow: '流水',
     statsPnl: '输赢',
