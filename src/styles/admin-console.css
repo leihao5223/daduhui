@@ -1,0 +1,187 @@
+/**
+ * 管理后台样式 — 结构对齐星彩 sx-page / sx-card，配色适配大都汇深色场景
+ */
+
+:root {
+  --dh-admin-bg: #0c0e14;
+  --dh-admin-surface: rgba(22, 26, 38, 0.92);
+  --dh-admin-border: rgba(201, 162, 39, 0.18);
+  --dh-admin-text: rgba(245, 243, 236, 0.94);
+  --dh-admin-muted: rgba(245, 243, 236, 0.52);
+  --dh-admin-primary: #c9a227;
+  --dh-admin-danger: #ef4444;
+  --dh-admin-radius: 10px;
+}
+
+.dh-admin-page {
+  min-height: 100vh;
+  background: var(--dh-admin-bg);
+  color: var(--dh-admin-text);
+}
+
+.dh-admin-page__header {
+  border-bottom: 1px solid var(--dh-admin-border);
+  padding: 1rem 0;
+  background: rgba(12, 14, 20, 0.96);
+}
+
+.dh-admin-page__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.dh-admin-page__content {
+  padding: 1.5rem 0 3rem;
+}
+
+.dh-admin-container {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.dh-admin-card {
+  background: var(--dh-admin-surface);
+  border: 1px solid var(--dh-admin-border);
+  border-radius: var(--dh-admin-radius);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.dh-admin-card h2.dh-admin-h2,
+.dh-admin-h2 {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.dh-admin-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.dh-admin-grid--4 {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+@media (min-width: 640px) {
+  .dh-admin-grid--3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.dh-admin-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--dh-admin-muted);
+  margin-bottom: 0.35rem;
+}
+
+.dh-admin-input {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--dh-admin-border);
+  background: rgba(8, 10, 16, 0.85);
+  color: var(--dh-admin-text);
+  font-size: 14px;
+}
+
+.dh-admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.dh-admin-btn--primary {
+  background: linear-gradient(135deg, #c9a227, #8b6914);
+  color: #120e06;
+  border-color: rgba(201, 162, 39, 0.35);
+}
+
+.dh-admin-btn--outline {
+  background: transparent;
+  border-color: var(--dh-admin-border);
+  color: var(--dh-admin-text);
+}
+
+.dh-admin-btn--ghost {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--dh-admin-border);
+  color: var(--dh-admin-muted);
+}
+
+.dh-admin-error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--dh-admin-radius);
+  padding: 0.75rem;
+  color: var(--dh-admin-danger);
+  font-size: 14px;
+}
+
+.dh-admin-text-muted {
+  color: var(--dh-admin-muted);
+  font-size: 13px;
+}
+
+.dh-admin-table-wrap {
+  overflow: auto;
+}
+
+.dh-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.dh-admin-table th,
+.dh-admin-table td {
+  padding: 0.5rem 0.35rem;
+  border-bottom: 1px solid var(--dh-admin-border);
+  text-align: left;
+}
+
+.dh-admin-biz-icon {
+  vertical-align: middle;
+  margin-right: 6px;
+  opacity: 0.85;
+}
+
+.dh-admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.dh-admin-modal {
+  background: var(--dh-admin-surface);
+  border: 1px solid var(--dh-admin-border);
+  border-radius: var(--dh-admin-radius);
+  padding: 1.25rem;
+  max-width: 420px;
+  width: 100%;
+}
+
+.dh-admin-modal label {
+  display: block;
+  margin-bottom: 0.65rem;
+}
+
+.dh-admin-modal .dh-admin-input {
+  margin-top: 0.25rem;
+}

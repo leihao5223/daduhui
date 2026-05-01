@@ -1,258 +1,412 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState, FormEvent } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Lock, User, ArrowLeft, Mail, Gift, CheckCircle, Shield, Sparkles } from 'lucide-react';
+import { apiGet, apiPost } from '../api/http';
+import { isAuthenticated, setToken } from '../lib/auth';
+import { CyberAuthShell } from '../components/auth/CyberAuthShell';
+import '../styles/cyber-chinese-login.css';
 
-const logoUrl = 'https://conversation.cdn.meoo.host/conversations/308104559711129600/image/2026-04-30/1777550396573-image.png?auth_key=9b76b96a40c7b392fc30d0ef304ed43f39f05414009ad3e74e6eb35e951d912c';
+interface SecurityPreset {
+  id: string;
+  text: string;
+}
 
-export default function RegisterPage() {
+const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    username: '',
-    password: '',
-    confirmPassword: '',
-    inviteCode: ''
-  });
+
+  const [nickname, setNickname] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [tradePassword, setTradePassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [agreed, setAgreed] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [showTradePassword, setShowTradePassword] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      alert('两次输入的密码不一致');
+  const [q1, setQ1] = useState('');
+  const [a1, setA1] = useState('');
+  const [q2, setQ2] = useState('');
+  const [a2, setA2] = useState('');
+
+  const [searchParams] = useSearchParams();
+  const [inviteCode, setInviteCode] = useState('');
+
+  const [presets, setPresets] = useState<SecurityPreset[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate('/', { replace: true });
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('invite');
+    if (fromUrl) {
+      setInviteCode(fromUrl.trim());
       return;
     }
-    if (!agreed) {
-      alert('请同意服务条款');
-      return;
+    try {
+      const pending = sessionStorage.getItem('daduhui_pending_invite');
+      if (pending) {
+        setInviteCode(pending.trim());
+      }
+    } catch {
+      /* ignore */
     }
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    localStorage.setItem('isLoggedIn', 'true');
-    localStorage.setItem('userInfo', JSON.stringify({
-      id: formData.username,
-      nickname: '用户' + formData.username.slice(-4),
-      balance: 0
-    }));
-    navigate('/home');
-  };
+  }, [searchParams]);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary-50 flex items-center justify-center p-4">
-      {/* Background Decorations */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-primary-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30" />
-        <div className="absolute bottom-20 right-20 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30" />
-      </div>
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiGet<{ success?: boolean; list?: SecurityPreset[] }>(
+          '/api/auth/security-question-presets',
+        );
+        if (!cancelled && data.success && data.list?.length) {
+          setPresets(data.list);
+          setQ1(data.list[0].id);
+          if (data.list.length > 1) setQ2(data.list[1].id);
+        } else if (!cancelled) {
+          const defaultPresets: SecurityPreset[] = [
+            { id: 'q1', text: '你的小学名字是什么？' },
+            { id: 'q2', text: '你最喜欢的颜色是什么？' },
+            { id: 'q3', text: '你的出生地是哪里？' },
+            { id: 'q4', text: '你最好的朋友名字是什么？' },
+          ];
+          setPresets(defaultPresets);
+          setQ1('q1');
+          setQ2('q2');
+        }
+      } catch {
+        if (cancelled) return;
+        const defaultPresets: SecurityPreset[] = [
+          { id: 'q1', text: '你的小学名字是什么？' },
+          { id: 'q2', text: '你最喜欢的颜色是什么？' },
+          { id: 'q3', text: '你的出生地是哪里？' },
+          { id: 'q4', text: '你最好的朋友名字是什么？' },
+        ];
+        setPresets(defaultPresets);
+        setQ1('q1');
+        setQ2('q2');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-      <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-8 items-center">
-        {/* Left Side - Branding */}
-        <motion.div 
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="hidden lg:flex flex-col items-center text-center"
-        >
-          <div className="relative mb-8">
-            <div className="w-32 h-32 rounded-2xl overflow-hidden shadow-2xl shadow-primary-500/30">
-              <img src={logoUrl} alt="大都汇" className="w-full h-full object-cover" />
-            </div>
-            <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center shadow-lg">
-              <Gift className="w-5 h-5 text-white" />
-            </div>
-          </div>
-          <h1 className="text-4xl font-bold brand-text-gradient mb-4">大都汇</h1>
-          <p className="text-slate-600 text-lg mb-8">注册即送新手大礼包</p>
-          
-          <div className="space-y-4 w-full max-w-sm">
-            <div className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="font-medium text-slate-900">安全可信</p>
-                <p className="text-sm text-slate-500">银行级数据加密保护</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-5 h-5 text-primary-600" />
-              </div>
-              <div>
-                <p className="font-medium text-slate-900">极速开奖</p>
-                <p className="text-sm text-slate-500">秒级同步开奖结果</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <Gift className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="font-medium text-slate-900">丰厚奖励</p>
-                <p className="text-sm text-slate-500">千万奖池等你来拿</p>
-              </div>
-            </div>
-          </div>
-        </motion.div>
+  const q2Options = useMemo(() => presets.filter((p) => p.id !== q1), [presets, q1]);
 
-        {/* Right Side - Register Form */}
+  if (!presets.length) {
+    return (
+      <CyberAuthShell
+        mainTitle="创建账户"
+        subtitle="账号 · 密码 · 密保"
+        scroll
+        titleClassName="main-title--sm"
+      >
         <motion.div
+          className="login-card"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-8 lg:p-10 border border-slate-100"
+          transition={{ duration: 0.6 }}
         >
-          {/* Mobile Logo */}
-          <div className="lg:hidden flex flex-col items-center mb-6">
-            <div className="w-16 h-16 rounded-xl overflow-hidden shadow-lg mb-3">
-              <img src={logoUrl} alt="大都汇" className="w-full h-full object-cover" />
-            </div>
-            <h1 className="text-xl font-bold brand-text-gradient">大都汇</h1>
-          </div>
-
-          <div className="flex items-center justify-between mb-6">
-            <button 
-              onClick={() => navigate('/home')}
-              className="p-2 -ml-2 text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h2 className="text-2xl font-bold text-slate-900">注册账号</h2>
-            <div className="w-9" />
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">账号</label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  placeholder="请输入账号（6-20位字母数字）"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                  required
-                  minLength={6}
-                  maxLength={20}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">密码</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="请输入密码（6-20位）"
-                  className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                  required
-                  minLength={6}
-                  maxLength={20}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">确认密码</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  placeholder="请再次输入密码"
-                  className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                邀请码 <span className="text-slate-400">(选填)</span>
-              </label>
-              <div className="relative">
-                <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  value={formData.inviteCode}
-                  onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
-                  placeholder="请输入邀请码"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <input 
-                type="checkbox" 
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-              />
-              <label className="text-sm text-slate-600 leading-relaxed">
-                我已阅读并同意
-                <button className="text-primary-600 hover:underline mx-1">《用户服务协议》</button>
-                和
-                <button className="text-primary-600 hover:underline mx-1">《隐私政策》</button>
-              </label>
-            </div>
-
-            <motion.button
-              type="submit"
-              disabled={isLoading}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              className="w-full py-4 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl font-semibold text-lg shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 transition-all disabled:opacity-70"
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  注册中...
-                </span>
-              ) : '立即注册'}
-            </motion.button>
-
-            <div className="relative py-2">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-slate-400">或</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="w-full py-4 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-semibold hover:border-primary-500 hover:text-primary-600 transition-all"
-            >
-              已有账号？立即登录
-            </button>
-          </form>
+          <p style={{ textAlign: 'center', color: 'rgba(201, 162, 39, 0.75)', padding: '2.5rem 0.5rem' }}>
+            加载密保问题…
+          </p>
         </motion.div>
-      </div>
-    </div>
+      </CyberAuthShell>
+    );
+  }
+
+  function handleQ1Change(next: string) {
+    setQ1(next);
+    if (q2 === next) {
+      const alt = presets.find((p) => p.id !== next);
+      if (alt) setQ2(alt.id);
+    }
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (nickname.trim().length < 2) {
+      setError('用户名至少 2 个字符');
+      return;
+    }
+    if (password.length < 6) {
+      setError('登录密码至少 6 位');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError('两次输入的登录密码不一致');
+      return;
+    }
+    if (tradePassword.length < 6 || !/^\d{6}$/.test(tradePassword)) {
+      setError('交易密码须为 6 位数字');
+      return;
+    }
+    if (!q1 || !q2 || q1 === q2) {
+      setError('请选择两个不同的密保问题');
+      return;
+    }
+    if (!a1.trim() || !a2.trim()) {
+      setError('请填写密保答案');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const data = await apiPost<{ success?: boolean; token?: string; message?: string }>('/api/auth/register', {
+        nickname: nickname.trim(),
+        password,
+        passwordConfirm,
+        tradePassword,
+        inviteCode: inviteCode.trim() || undefined,
+        security: [
+          { questionId: q1, answer: a1.trim() },
+          { questionId: q2, answer: a2.trim() },
+        ],
+      });
+
+      if (!data.success || !data.token) {
+        setError(data.message || '注册失败');
+        return;
+      }
+
+      setToken(data.token);
+      navigate('/', {
+        replace: true,
+        state: {
+          fromRegister: true,
+          nickname: nickname.trim(),
+        },
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '网络错误');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <CyberAuthShell
+      mainTitle="创建账户"
+      subtitle="账号 · 密码 · 密保"
+      scroll
+      titleClassName="main-title--sm"
+    >
+      <motion.div
+        className="login-card"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45, duration: 0.8 }}
+      >
+        <form onSubmit={handleSubmit}>
+          {error ? <p className="cyber-auth-error">{error}</p> : null}
+
+          <div className="input-group">
+            <label className="input-label" htmlFor="reg-user">
+              用户名（账号）
+            </label>
+            <input
+              id="reg-user"
+              type="text"
+              className="input-field"
+              autoComplete="username"
+              placeholder="至少 2 个字符"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label" htmlFor="reg-invite">
+              邀请码（选填）
+            </label>
+            <input
+              id="reg-invite"
+              type="text"
+              className="input-field"
+              autoComplete="off"
+              placeholder="代理推广邀请码，绑定上级代理"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              spellCheck={false}
+            />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label" htmlFor="reg-pass">
+              登录密码
+            </label>
+            <div className="cyber-pass-wrap">
+              <input
+                id="reg-pass"
+                type={showPassword ? 'text' : 'password'}
+                className="input-field"
+                autoComplete="new-password"
+                placeholder="至少 6 位"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="cyber-pass-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                {showPassword ? '隐藏' : '显示'}
+              </button>
+            </div>
+          </div>
+
+          <div className="input-group">
+            <label className="input-label" htmlFor="reg-pass2">
+              确认登录密码
+            </label>
+            <div className="cyber-pass-wrap">
+              <input
+                id="reg-pass2"
+                type={showPasswordConfirm ? 'text' : 'password'}
+                className="input-field"
+                autoComplete="new-password"
+                placeholder="再次输入"
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="cyber-pass-toggle"
+                onClick={() => setShowPasswordConfirm((v) => !v)}
+              >
+                {showPasswordConfirm ? '隐藏' : '显示'}
+              </button>
+            </div>
+          </div>
+
+          <div className="input-group">
+            <label className="input-label" htmlFor="reg-trade">
+              交易密码（6 位数字）
+            </label>
+            <div className="cyber-pass-wrap">
+              <input
+                id="reg-trade"
+                type={showTradePassword ? 'text' : 'password'}
+                className="input-field"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="用于提现等操作"
+                value={tradePassword}
+                onChange={(e) => setTradePassword(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                required
+              />
+              <button
+                type="button"
+                className="cyber-pass-toggle"
+                onClick={() => setShowTradePassword((v) => !v)}
+              >
+                {showTradePassword ? '隐藏' : '显示'}
+              </button>
+            </div>
+          </div>
+
+          <p className="cyber-auth-section">密保问题（用于找回账户）</p>
+
+          <div className="input-group">
+            <label className="input-label" htmlFor="reg-q1">
+              问题 1
+            </label>
+            <select
+              id="reg-q1"
+              className="input-field"
+              value={q1}
+              onChange={(e) => handleQ1Change(e.target.value)}
+            >
+              {presets.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.text}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="input-group">
+            <label className="input-label" htmlFor="reg-a1">
+              答案 1
+            </label>
+            <input
+              id="reg-a1"
+              type="text"
+              className="input-field"
+              autoComplete="off"
+              placeholder="请输入答案"
+              value={a1}
+              onChange={(e) => setA1(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label" htmlFor="reg-q2">
+              问题 2
+            </label>
+            <select id="reg-q2" className="input-field" value={q2} onChange={(e) => setQ2(e.target.value)}>
+              {q2Options.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.text}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="input-group">
+            <label className="input-label" htmlFor="reg-a2">
+              答案 2
+            </label>
+            <input
+              id="reg-a2"
+              type="text"
+              className="input-field"
+              autoComplete="off"
+              placeholder="请输入答案"
+              value={a2}
+              onChange={(e) => setA2(e.target.value)}
+              required
+            />
+          </div>
+
+          <label className="cyber-auth-check">
+            <input type="checkbox" required />
+            我已阅读并同意平台用户协议与隐私政策相关条款
+          </label>
+
+          <motion.button
+            type="submit"
+            className="login-button"
+            disabled={busy}
+            whileHover={{ scale: busy ? 1 : 1.02 }}
+            whileTap={{ scale: busy ? 1 : 0.98 }}
+          >
+            {busy ? '提交中…' : '注册并登录'}
+          </motion.button>
+
+          <div className="link-area">
+            <Link to="/login" className="link-item">
+              已有账号？去登录
+            </Link>
+            <Link to="/" className="link-item">
+              返回首页
+            </Link>
+          </div>
+        </form>
+      </motion.div>
+    </CyberAuthShell>
   );
-}
+};
+
+export default RegisterPage;

@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  type ReactNode,
+} from 'react';
 
 interface SupportChatState {
   isOpen: boolean;
@@ -51,7 +58,7 @@ export function SupportChatProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useSupportChat() {
+export function useSupportChat(): SupportChatState {
   const context = useContext(SupportChatContext);
   if (!context) {
     throw new Error('useSupportChat must be used within SupportChatProvider');

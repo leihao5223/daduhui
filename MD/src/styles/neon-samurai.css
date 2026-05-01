@@ -1,0 +1,269 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #080818;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+.neon-samurai-container {
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #080818 0%, #111122 50%, #080818 100%);
+  overflow: hidden;
+}
+
+/* 背景网格 */
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(220, 38, 38, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(220, 38, 38, 0.1) 1px, transparent 1px);
+  background-size: 50px 50px;
+  pointer-events: none;
+}
+
+/* 刀锋斜切装饰 */
+.katana-slash {
+  position: absolute;
+  width: 200%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #dc2626, transparent);
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.8);
+  transform: rotate(-45deg);
+  opacity: 0.3;
+}
+
+.slash-1 {
+  top: 20%;
+  left: -50%;
+  animation: slashMove 8s linear infinite;
+}
+
+.slash-2 {
+  bottom: 30%;
+  right: -50%;
+  animation: slashMove 10s linear infinite reverse;
+}
+
+@keyframes slashMove {
+  from { transform: rotate(-45deg) translateX(-100px); }
+  to { transform: rotate(-45deg) translateX(100px); }
+}
+
+/* 主标题区域 */
+.hero-section {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  padding: 2rem;
+}
+
+.main-title {
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 900;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 1rem;
+  text-shadow: 
+    0 0 20px rgba(220, 38, 38, 0.8),
+    0 0 40px rgba(220, 38, 38, 0.6),
+    0 0 60px rgba(220, 38, 38, 0.4);
+  animation: titleNeon 2s ease-in-out infinite alternate;
+}
+
+@keyframes titleNeon {
+  from {
+    text-shadow: 
+      0 0 20px rgba(220, 38, 38, 0.8),
+      0 0 40px rgba(220, 38, 38, 0.6),
+      0 0 60px rgba(220, 38, 38, 0.4);
+  }
+  to {
+    text-shadow: 
+      0 0 30px rgba(220, 38, 38, 1),
+      0 0 60px rgba(220, 38, 38, 0.8),
+      0 0 90px rgba(220, 38, 38, 0.6),
+      0 0 120px rgba(220, 38, 38, 0.4);
+  }
+}
+
+.subtitle {
+  font-size: clamp(1.5rem, 4vw, 3rem);
+  font-weight: 700;
+  color: #a020f0;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 2rem;
+  text-shadow: 
+    0 0 15px rgba(160, 32, 240, 0.8),
+    0 0 30px rgba(160, 32, 240, 0.6);
+  animation: subtitleNeon 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes subtitleNeon {
+  from {
+    text-shadow: 
+      0 0 15px rgba(160, 32, 240, 0.8),
+      0 0 30px rgba(160, 32, 240, 0.6);
+  }
+  to {
+    text-shadow: 
+      0 0 25px rgba(160, 32, 240, 1),
+      0 0 50px rgba(160, 32, 240, 0.8),
+      0 0 75px rgba(160, 32, 240, 0.6);
+  }
+}
+
+/* 家纹徽章 */
+.kamon-badge {
+  display: inline-block;
+  width: 60px;
+  height: 60px;
+  border: 3px solid #dc2626;
+  border-radius: 50%;
+  margin: 1rem;
+  position: relative;
+  box-shadow: 
+    0 0 15px rgba(220, 38, 38, 0.5),
+    inset 0 0 10px rgba(220, 38, 38, 0.2);
+  animation: kamonPulse 3s ease-in-out infinite;
+}
+
+.kamon-badge::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  border: 2px solid #dc2626;
+  border-radius: 50%;
+}
+
+@keyframes kamonPulse {
+  0%, 100% { 
+    box-shadow: 
+      0 0 15px rgba(220, 38, 38, 0.5),
+      inset 0 0 10px rgba(220, 38, 38, 0.2);
+  }
+  50% { 
+    box-shadow: 
+      0 0 25px rgba(220, 38, 38, 0.8),
+      inset 0 0 15px rgba(220, 38, 38, 0.4);
+  }
+}
+
+/* CTA按钮 */
+.cta-button {
+  display: inline-block;
+  padding: 1rem 3rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  background: #dc2626;
+  border: 2px solid #dc2626;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  box-shadow: 
+    0 0 15px rgba(220, 38, 38, 0.5),
+    0 0 30px rgba(220, 38, 38, 0.3);
+}
+
+.cta-button:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 
+    0 0 25px rgba(220, 38, 38, 0.8),
+    0 0 50px rgba(220, 38, 38, 0.6);
+  background: #ef4444;
+}
+
+.cta-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.cta-button:hover::before {
+  left: 100%;
+}
+
+/* 鸟居门框架 */
+.torii-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  max-width: 600px;
+  height: 70%;
+  border: 3px solid rgba(220, 38, 38, 0.3);
+  border-top: 8px solid rgba(220, 38, 38, 0.5);
+  box-shadow: 
+    0 0 20px rgba(220, 38, 38, 0.2),
+    inset 0 0 20px rgba(220, 38, 38, 0.1);
+  pointer-events: none;
+}
+
+.torii-frame::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -10px;
+  right: -10px;
+  height: 15px;
+  background: rgba(220, 38, 38, 0.5);
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.5);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 1rem;
+  }
+  
+  .kamon-badge {
+    width: 40px;
+    height: 40px;
+    margin: 0.5rem;
+  }
+  
+  .kamon-badge::before {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .cta-button {
+    padding: 0.8rem 2rem;
+    font-size: 1.2rem;
+  }
+  
+  .torii-frame {
+    width: 90%;
+    height: 60%;
+  }
+}

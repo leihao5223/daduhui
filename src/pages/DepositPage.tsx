@@ -1,147 +1,159 @@
-import React, { useState } from 'react';
+import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, CreditCard, Wallet, QrCode, Copy, Check } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { apiGet, apiPost } from '../api/http';
+import { getToken } from '../lib/auth';
+import { useSupportChat } from '../context/SupportChatContext';
+import { PageHeader } from '../components/layout/PageHeader';
 
-const paymentMethods = [
-  { id: 'bank', name: '银行卡转账', icon: CreditCard },
-  { id: 'alipay', name: '支付宝', icon: QrCode },
-  { id: 'wechat', name: '微信支付', icon: QrCode },
-  { id: 'usdt', name: 'USDT', icon: Wallet },
-];
+type PayMethod = 'alipay' | 'wechat' | 'usdt';
 
-export default function DepositPage() {
+const payMethodLabel: Record<PayMethod, string> = {
+  alipay: '支付宝',
+  wechat: '微信',
+  usdt: 'USDT（赠送1%）',
+};
+
+const payMethodMessageLabel: Record<PayMethod, string> = {
+  alipay: '支付宝',
+  wechat: '微信',
+  usdt: 'USDT',
+};
+
+const DepositPage: React.FC = () => {
   const navigate = useNavigate();
+  const { openChat, setPrefill, setAutoSend } = useSupportChat();
+  const signedIn = !!getToken();
   const [amount, setAmount] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState('bank');
-  const [copied, setCopied] = useState(false);
+  const [payMethod, setPayMethod] = useState<PayMethod>('alipay');
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const quickAmounts = ['100', '500', '1000', '5000', '10000'];
+  const quickAmounts = [100, 1000, 5000];
 
-  const copyAccount = () => {
-    navigator.clipboard.writeText('6222 8888 8888 8888 888');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setErrorMsg(null);
+    if (!amount || Number(amount) <= 0) return;
 
-  const handleSubmit = () => {
-    if (!amount || parseFloat(amount) <= 0) {
-      alert('请输入充值金额');
-      return;
+    setSubmitting(true);
+
+    try {
+      const dep = await apiPost<{ success?: boolean; message?: string }>('/api/deposit/submit', {
+        amount: Number(amount),
+        payMethod,
+      });
+      if (!dep.success) {
+        setErrorMsg(dep.message || '充值提交失败');
+        return;
+      }
+
+      let userId = '****';
+      try {
+        const r = await apiGet<{ success?: boolean; data?: { userId?: string | number } }>('/api/me/summary');
+        const rawId = String(r?.data?.userId ?? '').trim();
+        if (rawId) userId = rawId;
+      } catch {
+        /* ignore */
+      }
+
+      const message = `id${userId}${payMethodMessageLabel[payMethod]}存款${Number(amount)}，请给我充值账户。`;
+      setPrefill(message);
+      setAutoSend(true);
+      openChat();
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : '网络错误');
+    } finally {
+      setSubmitting(false);
     }
-    alert(`已提交${amount}元充值申请，请完成转账后联系客服确认`);
-  };
+  }
+
+  if (!signedIn) {
+    return (
+      <div className="dx-page">
+        <PageHeader title="充值" backTo="/" />
+        <main className="dx-page-main">
+          <section className="dh-gate-card">
+            <p className="dh-gate-title">请先登录</p>
+            <p className="dh-gate-desc">登录后方可演示即时到账充值并写入资金流水（`/api/deposit/submit`）。</p>
+            <button type="button" className="dx-btn-primary" onClick={() => navigate('/')}>
+              返回首页
+            </button>
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2">
-          <ChevronLeft className="w-5 h-5 text-gray-700" />
-        </button>
-        <h1 className="text-lg font-bold text-gray-900">存款</h1>
-      </div>
-
-      <div className="p-4 space-y-4">
-        {/* Amount Input */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <label className="text-gray-500 text-sm mb-2 block">充值金额</label>
-          <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
-            <span className="text-2xl text-gray-900">¥</span>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="请输入金额"
-              className="flex-1 text-2xl font-bold outline-none"
-            />
-          </div>
-          <div className="flex gap-2 mt-3">
-            {quickAmounts.map((amt) => (
+    <div className="dx-page">
+      <PageHeader title="充值" backTo="/" />
+      <main className="dx-page-main">
+        <section className="dx-card">
+          <p className="dx-card-label">支付方式</p>
+          <div className="dx-pay-tabs" role="tablist">
+            {(Object.keys(payMethodLabel) as PayMethod[]).map((k) => (
               <button
-                key={amt}
-                onClick={() => setAmount(amt)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                  amount === amt
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700'
-                }`}
+                key={k}
+                type="button"
+                className={`dx-pay-tab ${payMethod === k ? 'dx-pay-tab--active' : ''}`}
+                role="tab"
+                aria-selected={payMethod === k}
+                onClick={() => setPayMethod(k)}
               >
-                {amt}
+                {payMethodLabel[k]}
               </button>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Payment Methods */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <label className="text-gray-500 text-sm mb-3 block">支付方式</label>
-          <div className="grid grid-cols-2 gap-3">
-            {paymentMethods.map((method) => {
-              const Icon = method.icon;
-              return (
+        <form className="dx-form" onSubmit={handleSubmit}>
+          <label className="dx-field">
+            <span className="dx-field-label">存款金额（元）</span>
+            <input
+              className="dx-input"
+              type="number"
+              min="1"
+              step="1"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="请输入存款金额"
+              required
+            />
+          </label>
+
+          <section className="dx-card">
+            <p className="dx-card-label">快捷金额</p>
+            <div className="dx-quick-row">
+              {quickAmounts.map((amt) => (
                 <button
-                  key={method.id}
-                  onClick={() => setSelectedMethod(method.id)}
-                  className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
-                    selectedMethod === method.id
-                      ? 'border-blue-600 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  key={amt}
+                  type="button"
+                  className={`dx-quick-btn ${amount === String(amt) ? 'dx-quick-btn--active' : ''}`}
+                  onClick={() => setAmount(String(amt))}
                 >
-                  <Icon className="w-5 h-5 text-blue-600" />
-                  <span className="font-medium text-gray-900">{method.name}</span>
+                  ¥{amt.toLocaleString()}
                 </button>
-              );
-            })}
-          </div>
-        </div>
+              ))}
+            </div>
+          </section>
 
-        {/* Payment Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl border border-gray-200 p-4"
-        >
-          <h3 className="font-medium text-gray-900 mb-3">收款信息</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">收款账户</span>
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-medium">6222 8888 8888 8888 888</span>
-                <button onClick={copyAccount} className="p-1">
-                  {copied ? (
-                    <Check className="w-4 h-4 text-green-500" />
-                  ) : (
-                    <Copy className="w-4 h-4 text-gray-400" />
-                  )}
-                </button>
-              </div>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">开户行</span>
-              <span className="font-medium">中国工商银行</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">户名</span>
-              <span className="font-medium">张三</span>
-            </div>
-          </div>
-          <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
-            <p className="text-yellow-700 text-sm">
-              请转账后联系客服确认，备注您的账号ID
-            </p>
-          </div>
-        </motion.div>
+          {errorMsg ? <p className="dx-hint" style={{ color: '#c62828' }}>{errorMsg}</p> : null}
+          <button type="submit" className="dx-btn-primary" disabled={submitting}>
+            {submitting ? '处理中…' : '确定存款'}
+          </button>
+          <p className="dx-hint">
+            将先调用 `/api/deposit/submit` 演示即时入账并记流水，再打开客服会话发送充值留言。
+          </p>
+        </form>
 
-        {/* Submit */}
-        <button
-          onClick={handleSubmit}
-          className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg"
-        >
-          确认充值
-        </button>
-      </div>
+        <section className="dx-deposit-history">
+          <button type="button" className="dx-btn-ghost" onClick={() => navigate('/wallet/records')}>
+            查看存款记录 →
+          </button>
+        </section>
+      </main>
     </div>
   );
-}
+};
+
+export default DepositPage;

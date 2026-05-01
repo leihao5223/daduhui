@@ -1,0 +1,237 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #0a0a0a;
+  color: #c9a227;
+  overflow-x: hidden;
+}
+
+.cyber-chinese-container {
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a0a0a 50%, #0a0a1a 100%);
+  overflow: hidden;
+}
+
+/* 背景装饰 */
+.bg-pattern {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(212, 85, 58, 0.03) 50px, rgba(212, 85, 58, 0.03) 51px),
+    repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(201, 162, 39, 0.03) 50px, rgba(201, 162, 39, 0.03) 51px);
+  pointer-events: none;
+}
+
+/* 霓虹灯笼效果 */
+.lantern-glow {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.3;
+  animation: float 6s ease-in-out infinite;
+}
+
+.lantern-1 {
+  top: 10%;
+  left: 10%;
+  background: radial-gradient(circle, #d4553a 0%, transparent 70%);
+}
+
+.lantern-2 {
+  bottom: 15%;
+  right: 15%;
+  background: radial-gradient(circle, #00d4ff 0%, transparent 70%);
+  animation-delay: -3s;
+}
+
+.lantern-3 {
+  top: 50%;
+  right: 25%;
+  background: radial-gradient(circle, #c9a227 0%, transparent 70%);
+  animation-delay: -1.5s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.05); }
+}
+
+/* 主标题区域 */
+.hero-section {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  padding: 2rem;
+}
+
+.main-title {
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 900;
+  color: #c9a227;
+  text-shadow: 
+    0 0 20px rgba(201, 162, 39, 0.8),
+    0 0 40px rgba(201, 162, 39, 0.6),
+    0 0 60px rgba(201, 162, 39, 0.4);
+  letter-spacing: 0.2em;
+  margin-bottom: 1rem;
+  animation: titleGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes titleGlow {
+  from {
+    text-shadow: 
+      0 0 20px rgba(201, 162, 39, 0.8),
+      0 0 40px rgba(201, 162, 39, 0.6),
+      0 0 60px rgba(201, 162, 39, 0.4);
+  }
+  to {
+    text-shadow: 
+      0 0 30px rgba(201, 162, 39, 1),
+      0 0 60px rgba(201, 162, 39, 0.8),
+      0 0 90px rgba(201, 162, 39, 0.6),
+      0 0 120px rgba(201, 162, 39, 0.4);
+  }
+}
+
+.subtitle {
+  font-size: clamp(1.5rem, 4vw, 3rem);
+  font-weight: 700;
+  color: #d4553a;
+  text-shadow: 
+    0 0 15px rgba(212, 85, 58, 0.8),
+    0 0 30px rgba(212, 85, 58, 0.6);
+  letter-spacing: 0.15em;
+  margin-bottom: 2rem;
+  animation: subtitlePulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes subtitlePulse {
+  from {
+    text-shadow: 
+      0 0 15px rgba(212, 85, 58, 0.8),
+      0 0 30px rgba(212, 85, 58, 0.6);
+  }
+  to {
+    text-shadow: 
+      0 0 25px rgba(212, 85, 58, 1),
+      0 0 50px rgba(212, 85, 58, 0.8),
+      0 0 75px rgba(212, 85, 58, 0.6);
+  }
+}
+
+/* 印章装饰 */
+.seal-stamp {
+  display: inline-block;
+  border: 3px solid #d4553a;
+  padding: 0.5rem 1rem;
+  margin: 1rem;
+  transform: rotate(-5deg);
+  box-shadow: 
+    0 0 15px rgba(212, 85, 58, 0.5),
+    inset 0 0 10px rgba(212, 85, 58, 0.2);
+  animation: sealFloat 4s ease-in-out infinite;
+}
+
+@keyframes sealFloat {
+  0%, 100% { transform: rotate(-5deg) translateY(0); }
+  50% { transform: rotate(-5deg) translateY(-10px); }
+}
+
+/* CTA按钮 */
+.cta-button {
+  display: inline-block;
+  padding: 1rem 3rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #d4553a 0%, #c9a227 100%);
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  letter-spacing: 0.1em;
+  box-shadow: 
+    0 0 20px rgba(212, 85, 58, 0.5),
+    0 0 40px rgba(201, 162, 39, 0.3);
+}
+
+.cta-button:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 
+    0 0 30px rgba(212, 85, 58, 0.8),
+    0 0 60px rgba(201, 162, 39, 0.6);
+}
+
+.cta-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.cta-button:hover::before {
+  left: 100%;
+}
+
+/* 云纹装饰 */
+.cloud-motif {
+  position: absolute;
+  width: 100px;
+  height: 40px;
+  opacity: 0.3;
+}
+
+.cloud-1 {
+  top: 20%;
+  left: 5%;
+  animation: cloudDrift 20s linear infinite;
+}
+
+.cloud-2 {
+  bottom: 25%;
+  right: 8%;
+  animation: cloudDrift 25s linear infinite reverse;
+}
+
+@keyframes cloudDrift {
+  from { transform: translateX(-100px); }
+  to { transform: translateX(calc(100vw + 100px)); }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 1rem;
+  }
+  
+  .seal-stamp {
+    padding: 0.3rem 0.6rem;
+    margin: 0.5rem;
+  }
+  
+  .cta-button {
+    padding: 0.8rem 2rem;
+    font-size: 1.2rem;
+  }
+}

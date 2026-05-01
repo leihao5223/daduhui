@@ -1,40 +1,85 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-interface GameCardProps {
+interface Game {
   id: string;
   name: string;
-  icon: string;
-  nextDraw: string;
-  onClick: () => void;
+  image: string;
+  tag: string;
 }
 
-export default function GameCard({ name, icon, nextDraw, onClick }: GameCardProps) {
+interface GameCardProps {
+  game: Game;
+  /** 点击「开始」进入的游戏路径；不传则仅展示 */
+  playPath?: string;
+}
+
+const GameCard: React.FC<GameCardProps> = ({ game, playPath }) => {
+  const navigate = useNavigate();
+
+  function goPlay() {
+    if (playPath) navigate(playPath);
+  }
+
+  function handlePlay(e: React.MouseEvent) {
+    e.stopPropagation();
+    goPlay();
+  }
+
+  function handleCardClick() {
+    goPlay();
+  }
+
+  function handleCardKeyDown(e: React.KeyboardEvent) {
+    if (!playPath) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      goPlay();
+    }
+  }
+
   return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className="w-full bg-white rounded-xl p-4 border border-blue-100 shadow-sm hover:shadow-md hover:border-blue-300 transition-all"
+    <motion.div
+      className={`game-card${playPath ? ' game-card--nav' : ''}`}
+      whileHover={{ y: -5, boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}
+      transition={{ duration: 0.3 }}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      role={playPath ? 'button' : undefined}
+      tabIndex={playPath ? 0 : undefined}
+      aria-label={playPath ? `进入${game.name}游戏大厅` : undefined}
     >
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl">
-          {icon}
-        </div>
-        <div className="flex-1">
-          <h3 className="text-gray-900 font-bold text-base">{name}</h3>
-          <div className="flex items-center gap-1 text-blue-500 text-xs mt-1">
-            <Clock className="w-3 h-3" />
-            <span>{nextDraw}开奖</span>
-          </div>
-        </div>
-        <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+      <div className="game-image-wrapper">
+        <img
+          src={game.image}
+          alt={game.name}
+          className="game-image"
+          decoding="async"
+          loading="lazy"
+        />
+        {game.tag && (
+          <span className={`game-tag ${game.tag.toLowerCase()}`}>{game.tag}</span>
+        )}
+        <div className="game-overlay">
+          <motion.button
+            type="button"
+            className="play-btn"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={handlePlay}
+            disabled={!playPath}
+            aria-label={playPath ? `进入${game.name}` : '敬请期待'}
+          >
+            <i className="fas fa-play"></i>
+          </motion.button>
         </div>
       </div>
-    </motion.button>
+      <div className="game-info">
+        <h4 className="game-name">{game.name}</h4>
+      </div>
+    </motion.div>
   );
-}
+};
+
+export default GameCard;

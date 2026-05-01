@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Headphones, Send, Image as ImageIcon, Smile } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useSupportChat } from '../../context/SupportChatContext';
 
 interface Message {
@@ -10,7 +9,24 @@ interface Message {
   timestamp: number;
 }
 
-const FAB_POS_KEY = 'ddh-support-fab-offset-v1';
+function HeadsetIcon() {
+  return (
+    <svg className="dx-support-fab__svg" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 14v3a2 2 0 002 2h1v-7H6a2 2 0 00-2 2zm16-1v4a2 2 0 01-2 2h-1v-8h1a2 2 0 012 2z"
+        fill="currentColor"
+      />
+      <path
+        d="M7 12v8a1 1 0 001 1h1a3 3 0 003-3v-1.5M17 12v8a1 1 0 01-1 1h-1a3 3 0 01-3-3v-1.5M8 10V7a4 4 0 118 0v3"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+const FAB_POS_KEY = 'dx-support-fab-offset-v1';
 
 function readStoredFabOffset(): { x: number; y: number } {
   try {
@@ -42,7 +58,7 @@ function clampFabOffset(x: number, y: number) {
   };
 }
 
-export default function SupportChatPanel() {
+export const SupportChatPanel: React.FC = () => {
   const { isOpen, prefillMessage, autoSend, openChat, closeChat } = useSupportChat();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -80,31 +96,34 @@ export default function SupportChatPanel() {
     });
   }, [isOpen]);
 
-  const handleSendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || sending) return;
+  const handleSendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim() || sending) return;
 
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      type: 'user',
-      content: content.trim(),
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setInput('');
-    setSending(true);
-
-    setTimeout(() => {
-      const agentMsg: Message = {
-        id: `agent-${Date.now()}`,
-        type: 'agent',
-        content: '您好，已收到您的消息，客服专员正在处理，请稍候...',
+      const userMsg: Message = {
+        id: `user-${Date.now()}`,
+        type: 'user',
+        content: content.trim(),
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, agentMsg]);
-      setSending(false);
-    }, 1000);
-  }, [sending]);
+
+      setMessages((prev) => [...prev, userMsg]);
+      setInput('');
+      setSending(true);
+
+      window.setTimeout(() => {
+        const agentMsg: Message = {
+          id: `agent-${Date.now()}`,
+          type: 'agent',
+          content: '您好，已收到您的消息，客服专员正在处理，请稍候…',
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, agentMsg]);
+        setSending(false);
+      }, 1000);
+    },
+    [sending]
+  );
 
   const handleSendMessageRef = useRef(handleSendMessage);
   handleSendMessageRef.current = handleSendMessage;
@@ -112,20 +131,12 @@ export default function SupportChatPanel() {
   useEffect(() => {
     if (isOpen && prefillMessage && autoSend) {
       setInput(prefillMessage);
-      const t = setTimeout(() => {
+      const t = window.setTimeout(() => {
         void handleSendMessageRef.current(prefillMessage);
       }, 100);
-      return () => clearTimeout(t);
+      return () => window.clearTimeout(t);
     }
   }, [isOpen, prefillMessage, autoSend]);
-
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
-  }, [isOpen]);
 
   useEffect(() => {
     const onResize = () => {
@@ -133,7 +144,9 @@ export default function SupportChatPanel() {
         const c = clampFabOffset(o.x, o.y);
         try {
           sessionStorage.setItem(FAB_POS_KEY, JSON.stringify(c));
-        } catch {}
+        } catch {
+          /* ignore */
+        }
         return c;
       });
     };
@@ -150,18 +163,21 @@ export default function SupportChatPanel() {
     return new Date(timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   }
 
-  const onFabPointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0) return;
-    fabDidDragRef.current = false;
-    fabDragRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: fabOffset.x,
-      originY: fabOffset.y,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }, [fabOffset.x, fabOffset.y]);
+  const onFabPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      fabDidDragRef.current = false;
+      fabDragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: fabOffset.x,
+        originY: fabOffset.y,
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [fabOffset.x, fabOffset.y]
+  );
 
   const onFabPointerMove = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
     const d = fabDragRef.current;
@@ -177,164 +193,132 @@ export default function SupportChatPanel() {
     if (!d || e.pointerId !== d.pointerId) return;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     fabDragRef.current = null;
     setFabOffset((o) => {
       const c = clampFabOffset(o.x, o.y);
       try {
         sessionStorage.setItem(FAB_POS_KEY, JSON.stringify(c));
-      } catch {}
+      } catch {
+        /* ignore */
+      }
       return c;
     });
   }, []);
 
-  const onFabClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-    if (fabDidDragRef.current) {
-      e.preventDefault();
-      e.stopPropagation();
-      fabDidDragRef.current = false;
-      return;
-    }
-    openChat();
-  }, [openChat]);
+  const onFabClick = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (fabDidDragRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        fabDidDragRef.current = false;
+        return;
+      }
+      openChat();
+    },
+    [openChat]
+  );
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/30 z-40"
-              onClick={closeChat}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed right-4 bottom-24 w-[380px] max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-2xl z-50 overflow-hidden"
-            >
-              {/* Header */}
-              <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                    <Headphones className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-white font-semibold">在线客服</h2>
-                    <div className="flex items-center gap-1 text-primary-100 text-xs">
-                      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                      客服在线中
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={closeChat}
-                  className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Messages */}
-              <div className="h-[320px] overflow-y-auto p-4 space-y-4 bg-slate-50">
-                {messages.map((msg) => {
-                  if (msg.type === 'system') {
-                    return (
-                      <div key={msg.id} className="text-center">
-                        <span className="inline-block px-3 py-1.5 bg-slate-200 text-slate-600 text-xs rounded-full">
-                          {msg.content}
-                        </span>
-                      </div>
-                    );
-                  }
-                  const mine = msg.type === 'user';
-                  return (
-                    <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] ${mine ? 'text-right' : ''}`}>
-                        <div
-                          className={`inline-block px-4 py-2.5 rounded-2xl text-sm ${
-                            mine
-                              ? 'bg-primary-600 text-white'
-                              : 'bg-white text-slate-700 shadow-sm border border-slate-100'
-                          }`}
-                        >
-                          {msg.content}
-                        </div>
-                        <div className={`text-xs text-slate-400 mt-1 ${mine ? 'text-right' : 'text-left'}`}>
-                          {formatTime(msg.timestamp)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input */}
-              <div className="border-t border-slate-200 p-3 bg-white">
-                <form onSubmit={handleSubmit} className="flex gap-2">
-                  <button
-                    type="button"
-                    className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                  </button>
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="输入消息..."
-                    disabled={sending}
-                    className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
-                  />
-                  <button
-                    type="button"
-                    className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
-                  >
-                    <Smile className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={sending || !input.trim()}
-                    className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </form>
-                <p className="text-xs text-slate-400 mt-2 text-center">
-                  客服工作时间：7×24小时在线
+      {isOpen && (
+        <>
+          <button type="button" className="dx-support-backdrop" aria-label="关闭客服窗口" onClick={closeChat} />
+          <div className="dx-support-panel dx-support-panel--open" aria-hidden={false} role="dialog" aria-modal="true">
+            <div className="dx-support-panel__grab" aria-hidden>
+              <span className="dx-support-panel__grab-bar" />
+            </div>
+            <div className="dx-support-panel__hd">
+              <div>
+                <h2 className="dx-support-panel__title">在线客服</h2>
+                <p className="dx-support-panel__sub">大都汇 · 智能与人工服务</p>
+                <p className="dx-support-panel__sub dx-support-panel__sub--status">
+                  <span className="dx-support-online-dot" aria-hidden />
+                  在线
                 </p>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              <div className="dx-support-panel__hd-actions">
+                <button type="button" className="dx-support-close" aria-label="关闭" onClick={closeChat}>
+                  <X size={18} strokeWidth={1.5} style={{ display: 'block' }} />
+                </button>
+              </div>
+            </div>
 
-      {/* FAB */}
+            <div className="dx-support-panel__body">
+              {messages.map((msg) => {
+                if (msg.type === 'system') {
+                  return (
+                    <p key={msg.id} className="dx-support-msg dx-support-msg--sys">
+                      {msg.content}
+                    </p>
+                  );
+                }
+                const mine = msg.type === 'user';
+                return (
+                  <div
+                    key={msg.id}
+                    className={['dx-support-row', mine ? 'dx-support-row--mine' : ''].filter(Boolean).join(' ')}
+                  >
+                    <div
+                      className={[
+                        'dx-support-bubble',
+                        mine ? 'dx-support-bubble--mine' : 'dx-support-bubble--staff',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      <p>{msg.content}</p>
+                      <time className="dx-support-time">{formatTime(msg.timestamp)}</time>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div className="dx-support-panel__ft">
+              <form onSubmit={handleSubmit} className="dx-support-panel__row">
+                <input
+                  ref={inputRef}
+                  className="dx-support-input"
+                  type="text"
+                  enterKeyHint="send"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="点击输入消息…"
+                  disabled={sending}
+                  autoComplete="off"
+                />
+                <button type="submit" className="dx-support-send" disabled={sending || !input.trim()}>
+                  发送
+                </button>
+              </form>
+            </div>
+          </div>
+        </>
+      )}
+
       {!isOpen && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="fixed right-4 bottom-24 z-40"
+        <div
+          className="dx-support-fab-wrap"
           style={{ transform: `translate(${fabOffset.x}px, ${fabOffset.y}px)` }}
         >
           <button
             type="button"
+            className="dx-support-fab dx-support-fab--draggable"
+            aria-label="拖动或打开在线客服"
             onPointerDown={onFabPointerDown}
             onPointerMove={onFabPointerMove}
             onPointerUp={onFabPointerUp}
             onPointerCancel={onFabPointerUp}
             onClick={onFabClick}
-            className="w-14 h-14 rounded-full bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-lg shadow-primary-500/30 flex items-center justify-center hover:shadow-xl hover:scale-105 transition-all cursor-move"
           >
-            <Headphones className="w-6 h-6" />
+            <HeadsetIcon />
           </button>
-        </motion.div>
+        </div>
       )}
     </>
   );
-}
+};

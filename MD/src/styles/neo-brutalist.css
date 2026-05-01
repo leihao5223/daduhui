@@ -1,0 +1,192 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #fff;
+  color: #000;
+  overflow-x: hidden;
+}
+
+.neo-brutalist-container {
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  padding: 2rem;
+}
+
+/* 背景装饰 */
+.bg-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(#000 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+/* 主标题区域 */
+.hero-section {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  max-width: 800px;
+}
+
+.main-title {
+  font-size: clamp(3rem, 10vw, 7rem);
+  font-weight: 900;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  margin-bottom: 1rem;
+  transform: rotate(-2deg);
+  text-shadow: 6px 6px 0px #ff6b6b;
+  animation: titleShake 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes titleShake {
+  from { transform: rotate(-2deg) translate(0, 0); }
+  to { transform: rotate(-1deg) translate(2px, -2px); }
+}
+
+.subtitle {
+  font-size: clamp(1.5rem, 5vw, 3.5rem);
+  font-weight: 900;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 2rem;
+  transform: rotate(1deg);
+  text-shadow: 4px 4px 0px #4ecdc4;
+  animation: subtitleBounce 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes subtitleBounce {
+  from { transform: rotate(1deg) translateY(0); }
+  to { transform: rotate(2deg) translateY(-5px); }
+}
+
+/* 装饰元素 */
+.deco-block {
+  position: absolute;
+  border: 4px solid #000;
+  box-shadow: 6px 6px 0px #000;
+}
+
+.deco-1 {
+  top: 10%;
+  left: 5%;
+  width: 80px;
+  height: 80px;
+  background: #ffe66d;
+  transform: rotate(15deg);
+  animation: decoFloat 3s ease-in-out infinite;
+}
+
+.deco-2 {
+  bottom: 15%;
+  right: 8%;
+  width: 60px;
+  height: 60px;
+  background: #ff6b6b;
+  transform: rotate(-10deg);
+  animation: decoFloat 4s ease-in-out infinite reverse;
+}
+
+.deco-3 {
+  top: 30%;
+  right: 15%;
+  width: 100px;
+  height: 40px;
+  background: #4ecdc4;
+  transform: rotate(5deg);
+  animation: decoFloat 3.5s ease-in-out infinite;
+}
+
+@keyframes decoFloat {
+  0%, 100% { transform: translateY(0) rotate(var(--rotation, 0deg)); }
+  50% { transform: translateY(-15px) rotate(var(--rotation, 0deg)); }
+}
+
+/* CTA按钮 */
+.cta-button {
+  display: inline-block;
+  padding: 1.2rem 3rem;
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #fff;
+  background: #ff6b6b;
+  border: 4px solid #000;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  box-shadow: 8px 8px 0px #000;
+  transform: rotate(-1deg);
+}
+
+.cta-button:hover {
+  transform: rotate(0deg) translate(4px, 4px);
+  box-shadow: 4px 4px 0px #000;
+  background: #ff5252;
+}
+
+.cta-button:active {
+  transform: rotate(0deg) translate(8px, 8px);
+  box-shadow: 0px 0px 0px #000;
+}
+
+/* 图标装饰 */
+.icon-deco {
+  position: absolute;
+  font-size: 3rem;
+  opacity: 0.8;
+}
+
+.icon-1 {
+  top: 15%;
+  right: 20%;
+  color: #ffe66d;
+  animation: iconSpin 10s linear infinite;
+}
+
+.icon-2 {
+  bottom: 20%;
+  left: 10%;
+  color: #4ecdc4;
+  animation: iconSpin 15s linear infinite reverse;
+}
+
+@keyframes iconSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 1rem;
+  }
+  
+  .cta-button {
+    padding: 1rem 2rem;
+    font-size: 1.4rem;
+  }
+  
+  .deco-block {
+    display: none;
+  }
+}

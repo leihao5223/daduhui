@@ -1,69 +1,80 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useTheme } from './hooks/useTheme';
 import { SupportChatProvider } from './context/SupportChatContext';
-import SupportChatPanel from './components/support/SupportChatPanel';
-import Header from './components/Header';
+import { SupportChatPanel } from './components/support/SupportChatPanel';
+import MainLayout from './layouts/MainLayout';
 import HomePage from './pages/HomePage';
-import GameLobby from './pages/GameLobby';
-import AgentRebatePage from './pages/AgentRebatePage';
+import PlaceholderPage from './pages/PlaceholderPage';
 import DepositPage from './pages/DepositPage';
 import WithdrawPage from './pages/WithdrawPage';
 import ProfilePage from './pages/ProfilePage';
-import AdminPage from './pages/AdminPage';
+import AgentCenterPage from './pages/AgentCenterPage';
+import AssetRecordsPage from './pages/AssetRecordsPage';
+import { AdminLoginPage, AdminConsolePage, AdminSupportPage } from './pages/admin';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import SettingsPage from './pages/SettingsPage';
-import ChangePasswordPage from './pages/ChangePasswordPage';
-import SetFundPasswordPage from './pages/SetFundPasswordPage';
-import BindBankCardPage from './pages/BindBankCardPage';
-import BetHistoryPage from './pages/BetHistoryPage';
-import TransactionsPage from './pages/TransactionsPage';
-import NotificationsPage from './pages/NotificationsPage';
-import ServicePage from './pages/ServicePage';
+import GameSlugRouter from './pages/games/GameSlugRouter';
 
-function AppContent() {
+const AuthAwareSupportChat: React.FC = () => {
   const location = useLocation();
-  const isAdminPage = location.pathname.includes('/admin');
+  const hide =
+    location.pathname === '/login' ||
+    location.pathname === '/register' ||
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/game');
+  if (hide) return null;
+  return <SupportChatPanel />;
+};
+
+const AppRoutes: React.FC = () => {
+  useTheme();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {!isAdminPage && <Header />}
+    <>
       <Routes>
-          <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/home" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/game" element={<GameLobby />} />
-          <Route path="/game/:gameType" element={<GameLobby />} />
-          <Route path="/game/agent-rebate" element={<AgentRebatePage />} />
-          <Route path="/deposit" element={<DepositPage />} />
-          <Route path="/withdraw" element={<WithdrawPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/change-password" element={<ChangePasswordPage />} />
-          <Route path="/set-fund-password" element={<SetFundPasswordPage />} />
-          <Route path="/bind-bank-card" element={<BindBankCardPage />} />
-          <Route path="/bet-history" element={<BetHistoryPage />} />
-          <Route path="/transactions" element={<TransactionsPage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/service" element={<ServicePage />} />
-          <Route path="/admin" element={<AdminPage />} />
-        </Routes>
-        {!isAdminPage && <SupportChatPanel />}
-      </div>
-  );
-}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
-function App() {
-  return (
-    <SupportChatProvider>
-      <HashRouter>
-        <AppContent />
-      </HashRouter>
-    </SupportChatProvider>
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route path="/admin/support" element={<AdminSupportPage />} />
+        <Route path="/admin/console" element={<AdminConsolePage />} />
+        <Route path="/admin/users" element={<AdminConsolePage />} />
+        <Route path="/admin/finance" element={<AdminConsolePage />} />
+        <Route path="/admin/agents" element={<AdminConsolePage />} />
+        <Route path="/admin/user-relations" element={<Navigate to="/admin/users" replace />} />
+
+        <Route path="/game/:slug" element={<GameSlugRouter />} />
+
+        <Route path="/" element={<MainLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path="deposit" element={<DepositPage />} />
+          <Route path="recharge" element={<Navigate to="/deposit" replace />} />
+          <Route path="withdraw" element={<WithdrawPage />} />
+          <Route path="sports" element={<PlaceholderPage title="体育" />} />
+          <Route path="lottery" element={<Navigate to="/agent" replace />} />
+          <Route path="activity" element={<PlaceholderPage title="活动" />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="wallet/records" element={<AssetRecordsPage />} />
+          <Route path="agent" element={<AgentCenterPage />} />
+          <Route path="support" element={<PlaceholderPage title="联系客服" />} />
+          <Route path="forgot-password" element={<PlaceholderPage title="找回密码" />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+      <AuthAwareSupportChat />
+    </>
   );
-}
+};
+
+const App: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <SupportChatProvider>
+        <AppRoutes />
+      </SupportChatProvider>
+    </BrowserRouter>
+  );
+};
 
 export default App;
