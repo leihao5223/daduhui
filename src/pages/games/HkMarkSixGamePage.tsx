@@ -192,9 +192,12 @@ const HkMarkSixGamePage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    async function tick() {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    async function pollLoop() {
+      if (cancelled) return;
       try {
-        const s = await apiGet<Hk6Status>('/api/game/hk-marksix/status', { timeout: 45000 });
+        const s = await apiGet<Hk6Status>('/api/game/hk-marksix/status', { timeout: 20000 });
         if (!cancelled) {
           setStatus(s);
           setStatusReqFailed(false);
@@ -204,13 +207,17 @@ const HkMarkSixGamePage: React.FC = () => {
           setStatus(null);
           setStatusReqFailed(true);
         }
+      } finally {
+        if (!cancelled) {
+          timeoutId = window.setTimeout(pollLoop, 2500);
+        }
       }
     }
-    void tick();
-    const id = window.setInterval(() => void tick(), 1500);
+
+    void pollLoop();
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      if (timeoutId != null) window.clearTimeout(timeoutId);
     };
   }, []);
 
