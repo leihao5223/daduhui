@@ -85,11 +85,11 @@
 
 /* —— Row2 ~10% —— */
 .hk6-row2 {
-  flex: 0 0 10vh;
+  flex: 0 0 auto;
   min-height: 3rem;
-  max-height: 10vh;
+  max-height: none;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.35rem 0.75rem;
@@ -112,6 +112,32 @@
   flex-wrap: wrap;
   gap: 0.2rem;
   margin-top: 0.2rem;
+  align-items: flex-start;
+}
+
+.hk6-ball-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.06rem;
+}
+
+.hk6-ball-zodiac {
+  font-size: 0.5rem;
+  color: rgba(245, 243, 236, 0.55);
+  line-height: 1;
+  max-width: 1.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hk6-draw-derived {
+  font-size: 0.58rem;
+  line-height: 1.4;
+  color: rgba(197, 160, 89, 0.82);
+  margin-top: 0.25rem;
+  max-width: 100%;
 }
 
 .hk6-ball {
@@ -373,6 +399,38 @@
   justify-content: space-between;
   padding: 0.45rem 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hk6-modal-row--draw {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+}
+
+.hk6-modal-row-line1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.hk6-modal-row-nums {
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  letter-spacing: 0.02em;
+}
+
+.hk6-modal-row-time {
+  color: rgba(245, 243, 236, 0.45);
+  font-size: 0.72em;
+  margin-left: auto;
+}
+
+.hk6-modal-row-derived {
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: rgba(197, 160, 89, 0.72);
+  padding-right: 0.15rem;
 }
 
 .hk6-modal-close {

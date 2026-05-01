@@ -60,6 +60,18 @@ function drawsForHistoryList(draws) {
   return vis;
 }
 
+/** 上期 / 历史接口：在纯号码之外附带生肖、半波、大小单双、七码总和等派生字段（与规则结算键一致） */
+function augmentDrawForClient(d) {
+  if (!d || !Array.isArray(d.balls) || d.special == null) return null;
+  return {
+    period: d.period,
+    balls: d.balls,
+    special: d.special,
+    drawnAt: d.drawnAt,
+    derived: rules.expandDrawForApi(d.balls, d.special),
+  };
+}
+
 function enqueuePendingSettlement(store, drawRow, saveStore) {
   ensureHk6(store);
   if (!store.hkMarkSix.pendingSettlements) store.hkMarkSix.pendingSettlements = [];
@@ -259,6 +271,7 @@ function getHistory(store, limit) {
       balls: [...d.balls, d.special].join(','),
       numbers: { main: d.balls, special: d.special },
       time: d.drawnAt ? new Date(d.drawnAt).toLocaleString('zh-CN') : '—',
+      derived: rules.expandDrawForApi(d.balls, d.special),
     })),
   };
 }

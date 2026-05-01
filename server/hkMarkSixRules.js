@@ -726,6 +726,122 @@ function getDefaultOdds(key) {
   return 1.98;
 }
 
+const ZODIAC_ZH = {
+  rat: '鼠',
+  ox: '牛',
+  tiger: '虎',
+  rabbit: '兔',
+  dragon: '龙',
+  snake: '蛇',
+  horse: '马',
+  goat: '羊',
+  monkey: '猴',
+  rooster: '鸡',
+  dog: '狗',
+  pig: '猪',
+};
+
+function waveZhLetter(w) {
+  return { r: '红', b: '蓝', g: '绿' }[w] || '';
+}
+
+function sizeParityZh(v, kind) {
+  if (kind === 'size') return { big: '大', small: '小', he: '和' }[v] || String(v);
+  return { odd: '单', even: '双', he: '和' }[v] || String(v);
+}
+
+/** 单粒球：正码/特码通用形态（正码盘大小单双用 sizeOfCell） */
+function cellFacet(cell) {
+  const p = pad2(cell);
+  const zid = numToZodiacId(p);
+  const w = waveOfCell(p);
+  const sz = sizeOfCell(p);
+  const pr = parityOfCell(p);
+  return {
+    num: p,
+    zodiacId: zid,
+    zodiac: zid ? ZODIAC_ZH[zid] : null,
+    wave: w,
+    waveZh: waveZhLetter(w),
+    size: sz,
+    sizeZh: sizeParityZh(sz, 'size'),
+    parity: pr,
+    parityZh: sizeParityZh(pr, 'parity'),
+    decade: decadeHead(p),
+    tail: tailDigit(p),
+    sumDigitsParity: sumDigitsCell(p),
+    sumDigitsParityZh: sizeParityZh(sumDigitsCell(p), 'parity'),
+    tailSize: tailSizeCell(p),
+    tailSizeZh: sizeParityZh(tailSizeCell(p), 'size'),
+  };
+}
+
+/** 特码专用：主势盘大小单双、半波、组合等与规则 settle* 一致 */
+function specialFacet(sp) {
+  const p = pad2(sp);
+  const w = waveOfCell(p);
+  const sz = sizeOfSpecial(p);
+  const pr = parityOfSpecial(p);
+  const zid = numToZodiacId(p);
+  let comboKey = null;
+  let comboZh = null;
+  if (sz !== 'he' && pr !== 'he') {
+    comboKey = `${sz}-${pr}`;
+    comboZh = `${sizeParityZh(sz, 'size')}${sizeParityZh(pr, 'parity')}`;
+  }
+  let halfWaveKey = null;
+  let halfWaveZh = null;
+  if (p !== '49' && sz !== 'he' && pr !== 'he') {
+    halfWaveKey = `${w}:${sz}:${pr}`;
+    halfWaveZh = `${waveZhLetter(w)}${sizeParityZh(sz, 'size')}${sizeParityZh(pr, 'parity')}`;
+  }
+  return {
+    num: p,
+    zodiacId: zid,
+    zodiac: zid ? ZODIAC_ZH[zid] : null,
+    wave: w,
+    waveZh: waveZhLetter(w),
+    size: sz,
+    sizeZh: sizeParityZh(sz, 'size'),
+    parity: pr,
+    parityZh: sizeParityZh(pr, 'parity'),
+    comboKey,
+    comboZh,
+    halfWaveKey,
+    halfWaveZh,
+    decade: decadeHead(p),
+    tail: tailDigit(p),
+    sumDigitsParity: sumDigitsParity(p),
+    sumDigitsParityZh: sizeParityZh(sumDigitsParity(p), 'parity'),
+    tailSize: tailSizeSpecial(p),
+    tailSizeZh: sizeParityZh(tailSizeSpecial(p), 'size'),
+  };
+}
+
+/**
+ * 开奖号码派生信息（供前端与历史接口展示；与 hkMarkSixRules 结算键一致）
+ */
+function expandDrawForApi(balls, special) {
+  const sp = pad2(special);
+  const main = (balls || []).map((c) => cellFacet(c));
+  const spec = specialFacet(sp);
+  const sum = totalSumSeven(balls, special);
+  const tbs = totalBigSmall(sum);
+  const bagNums = [...(balls || []).map(pad2), sp];
+  const zodiacIds = [...new Set(bagNums.map((n) => numToZodiacId(n)).filter(Boolean))];
+  const zodiacsInDraw = zodiacIds.map((id) => ({ id, name: ZODIAC_ZH[id] }));
+  const tailDigitsInDraw = [...new Set(bagNums.map((n) => tailDigit(n)))].sort((a, b) => a - b);
+  return {
+    main,
+    special: spec,
+    totalSumSeven: sum,
+    totalSizeSeven: tbs,
+    totalSizeSevenZh: tbs === 'big' ? '大' : '小',
+    zodiacsInDraw,
+    tailDigitsInDraw,
+  };
+}
+
 module.exports = {
   ZODIAC_IDS,
   ZODIAC_NUMS,
@@ -734,4 +850,5 @@ module.exports = {
   settleLine,
   getDefaultOdds,
   numToZodiacId,
+  expandDrawForApi,
 };

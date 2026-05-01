@@ -8,6 +8,34 @@ import { gamesContent } from '../../content/games';
 import { HkMarkSixComboPanel } from './HkMarkSixComboPanel';
 import { HkMarkSixQuickBetPanel, type QuickBetLabels } from './HkMarkSixQuickBetPanel';
 
+type Hk6DrawDerived = {
+  main: Array<{ zodiac?: string | null }>;
+  special: {
+    zodiac?: string | null;
+    sizeZh?: string;
+    parityZh?: string;
+    comboZh?: string | null;
+    halfWaveZh?: string | null;
+  };
+  totalSumSeven: number;
+  totalSizeSevenZh: string;
+  zodiacsInDraw?: { id: string; name: string }[];
+};
+
+function formatHk6DerivedSummary(d: Hk6DrawDerived): string {
+  const sp = d.special;
+  const parts: string[] = [];
+  if (sp?.zodiac) parts.push(`特肖${sp.zodiac}`);
+  if (sp?.halfWaveZh) parts.push(`半波${sp.halfWaveZh}`);
+  else if (sp?.sizeZh && sp?.parityZh) parts.push(`特码${sp.sizeZh}${sp.parityZh}`);
+  if (sp?.comboZh) parts.push(sp.comboZh);
+  parts.push(`七码和${d.totalSumSeven}（总${d.totalSizeSevenZh}）`);
+  if (d.zodiacsInDraw?.length) {
+    parts.push(`七肖：${d.zodiacsInDraw.map((z) => z.name).join('')}`);
+  }
+  return parts.join(' · ');
+}
+
 type Hk6Status = {
   success?: boolean;
   drawsCount?: number;
@@ -25,6 +53,7 @@ type Hk6Status = {
     balls?: string[];
     special?: string;
     drawnAt?: string;
+    derived?: Hk6DrawDerived;
   };
 };
 
@@ -32,6 +61,7 @@ type Hk6HistoryRow = {
   period: string;
   balls: string;
   time: string;
+  derived?: Hk6DrawDerived;
 };
 
 const HK_RED = new Set([
@@ -283,10 +313,22 @@ const HkMarkSixGamePage: React.FC = () => {
   const lastDrawBalls = useMemo(() => {
     const ld = status?.lastDraw;
     if (!ld || !Array.isArray(ld.balls)) return [];
-    const main = ld.balls.map((n) => ({ n, tone: ballTone(n) }));
-    const sp = ld.special ? [{ n: ld.special, tone: ballTone(ld.special) }] : [];
+    const der = ld.derived;
+    const main = ld.balls.map((n, idx) => ({
+      n,
+      tone: ballTone(n),
+      zodiac: der?.main?.[idx]?.zodiac ?? null,
+    }));
+    const sp = ld.special
+      ? [{ n: ld.special, tone: ballTone(ld.special), zodiac: der?.special?.zodiac ?? null }]
+      : [];
     return [...main, ...sp];
   }, [status?.lastDraw]);
+
+  const lastDrawDerivedSummary = useMemo(
+    () => (status?.lastDraw?.derived ? formatHk6DerivedSummary(status.lastDraw.derived) : null),
+    [status?.lastDraw?.derived],
+  );
 
   const handleReset = () => {
     setSelectedKeys(new Set());
@@ -386,15 +428,21 @@ const HkMarkSixGamePage: React.FC = () => {
           </div>
           <div className="hk6-balls">
             {lastDrawBalls.length ? (
-              lastDrawBalls.map(({ n, tone }, i) => (
-                <span key={`${i}-${n}`} className={`hk6-ball hk6-ball--${tone}`}>
-                  {n}
-                </span>
+              lastDrawBalls.map(({ n, tone, zodiac }, i) => (
+                <div key={`${i}-${n}`} className="hk6-ball-wrap">
+                  <span className={`hk6-ball hk6-ball--${tone}`}>{n}</span>
+                  {zodiac ? <span className="hk6-ball-zodiac">{zodiac}</span> : null}
+                </div>
               ))
             ) : (
               <span style={{ opacity: 0.5 }}>{hk.noDraw}</span>
             )}
           </div>
+          {lastDrawDerivedSummary ? (
+            <div className="hk6-draw-derived" title={lastDrawDerivedSummary}>
+              {lastDrawDerivedSummary}
+            </div>
+          ) : null}
         </div>
         <button type="button" className="hk6-history-btn" onClick={() => setHistoryOpen(true)}>
           {hk.historyBtn}
@@ -531,10 +579,15 @@ const HkMarkSixGamePage: React.FC = () => {
                 <div className="hk6-modal-row">{hk.historyEmpty}</div>
               ) : (
                 historyRows.map((row) => (
-                  <div key={`${row.period}-${row.time}`} className="hk6-modal-row">
-                    <span>{row.period}</span>
-                    <span>{row.balls}</span>
-                    <span style={{ color: 'rgba(245,243,236,0.45)' }}>{row.time}</span>
+                  <div key={`${row.period}-${row.time}`} className="hk6-modal-row hk6-modal-row--draw">
+                    <div className="hk6-modal-row-line1">
+                      <span>{row.period}</span>
+                      <span className="hk6-modal-row-nums">{row.balls}</span>
+                      <span className="hk6-modal-row-time">{row.time}</span>
+                    </div>
+                    {row.derived ? (
+                      <div className="hk6-modal-row-derived">{formatHk6DerivedSummary(row.derived)}</div>
+                    ) : null}
                   </div>
                 ))
               )}
