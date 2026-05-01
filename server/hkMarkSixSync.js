@@ -8,6 +8,9 @@ const DEFAULT_EXTENDED_SYNC_URL = 'https://marksix6.net/index.php?api=1';
 let lastExternalAttemptMs = 0;
 const EXTERNAL_MIN_INTERVAL_MS = Number(process.env.HK6_SYNC_MIN_MS || 28000);
 
+/** 合并并发中的 ingest，避免多路轮询各自命中 28s 节流返回空列表 */
+let ingestInFlight = null;
+
 function maxStoredDraws() {
   const n = Number(process.env.HK6_MAX_DRAWS || 200);
   return Math.min(Math.max(n, 1), 500);
@@ -190,12 +193,14 @@ async function fetchExternalDrawRow() {
 /**
  * @returns {Promise<{ updated: boolean, row?: object, error?: string }>}
  */
-async function tryIngestExternalDraw(store, saveStore, settleFn) {
+async function tryIngestExternalDrawImpl(store, saveStore, settleFn) {
   if (process.env.HK6_EXTERNAL_SYNC === '0') {
     return { updated: false };
   }
   const now = Date.now();
-  if (now - lastExternalAttemptMs < EXTERNAL_MIN_INTERVAL_MS) {
+  const hasDraws = store.hkMarkSix.draws.length > 0;
+  const throttleOk = !hasDraws || now - lastExternalAttemptMs >= EXTERNAL_MIN_INTERVAL_MS;
+  if (!throttleOk) {
     return { updated: false };
   }
   lastExternalAttemptMs = now;
@@ -203,7 +208,7 @@ async function tryIngestExternalDraw(store, saveStore, settleFn) {
   if (process.env.HK6_SYNC_MODE !== 'raw') {
     const extUrl = extendedSyncUrl();
     if (extUrl) {
-      const extJson = await fetchJsonUrl(extUrl, 20000);
+      const extJson = await fetchJsonUrl(extUrl, 15000);
       const incoming = extJson && parseMarksix6ExtendedPayload(extJson);
       if (incoming && incoming.length) {
         const r = mergeExtendedIntoStore(store, incoming, saveStore, settleFn, 'marksix6-extended');
@@ -250,6 +255,23 @@ async function tryIngestExternalDraw(store, saveStore, settleFn) {
   saveStore();
   settleFn(store, cleanRow, saveStore);
   return { updated: true, row: cleanRow };
+}
+
+async function tryIngestExternalDraw(store, saveStore, settleFn) {
+  if (process.env.HK6_EXTERNAL_SYNC === '0') {
+    return { updated: false };
+  }
+  if (ingestInFlight) {
+    return ingestInFlight;
+  }
+  ingestInFlight = (async () => {
+    try {
+      return await tryIngestExternalDrawImpl(store, saveStore, settleFn);
+    } finally {
+      ingestInFlight = null;
+    }
+  })();
+  return ingestInFlight;
 }
 
 module.exports = {

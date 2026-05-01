@@ -9,6 +9,10 @@ export const gamesContent = {
   hk6: {
     title: '香港六合彩',
     subtitleLoading: '正在同步状态…',
+    syncFailed: (code: string) =>
+      code === 'fetch_failed'
+        ? '同步失败：服务器连不上开奖源（请检查出站网络或代理）'
+        : `同步失败（${code}）`,
     subtitle: (period: string, sec: number | string) =>
       `投注期 ${period} · 演示封盘倒计时 ${sec}s`,
     syncSource: '同步',

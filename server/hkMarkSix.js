@@ -176,6 +176,20 @@ async function refreshDraws(store, saveStore) {
   }
 }
 
+/** 状态/历史接口：已有开奖数据时不阻塞 HTTP，后台继续 sync；尚无数据时同步等待拉满。 */
+async function touchHk6Sync(store, saveStore) {
+  ensureHk6(store);
+  if (process.env.HK6_EXTERNAL_SYNC === '0') {
+    await refreshDraws(store, saveStore);
+    return;
+  }
+  if (store.hkMarkSix.draws.length > 0) {
+    void refreshDraws(store, saveStore);
+    return;
+  }
+  await refreshDraws(store, saveStore);
+}
+
 function maybeAdvanceDraw(store, saveStore) {
   maybeAdvanceFake(store, saveStore);
 }
@@ -276,6 +290,7 @@ module.exports = {
   getHistory,
   maybeAdvanceDraw,
   refreshDraws,
+  touchHk6Sync,
   placeBet,
   getUserRoomStats,
   settleBetsForCompletedDraw,

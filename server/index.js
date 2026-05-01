@@ -577,7 +577,7 @@ const server = http.createServer(async (req, res) => {
 
     /** ----- GET /api/game/hk-marksix/status ----- */
     if (req.method === 'GET' && p === '/api/game/hk-marksix/status') {
-      await hkMarkSix.refreshDraws(store, saveStore);
+      await hkMarkSix.touchHk6Sync(store, saveStore);
       saveStore();
       json(res, 200, hkMarkSix.getStatus(store));
       return;
@@ -585,7 +585,7 @@ const server = http.createServer(async (req, res) => {
 
     /** ----- GET /api/game/hk-marksix/history ----- */
     if (req.method === 'GET' && p === '/api/game/hk-marksix/history') {
-      await hkMarkSix.refreshDraws(store, saveStore);
+      await hkMarkSix.touchHk6Sync(store, saveStore);
       saveStore();
       const q = new URL(req.url || '', 'http://x');
       const limit = q.searchParams.get('limit');

@@ -90,8 +90,9 @@ export async function apiFetch<T = unknown>(
   }
 }
 
-export function apiGet<T = unknown>(path: string): Promise<T> {
-  return apiFetch<T>(path, { method: 'GET' });
+export function apiGet<T = unknown>(path: string, init: RequestInit & { timeout?: number } = {}): Promise<T> {
+  const { timeout, ...rest } = init;
+  return apiFetch<T>(path, { method: 'GET', ...(timeout != null ? { timeout } : {}), ...rest });
 }
 
 export function apiPost<T = unknown>(path: string, data?: unknown): Promise<T> {

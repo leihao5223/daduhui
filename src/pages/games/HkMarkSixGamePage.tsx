@@ -160,7 +160,7 @@ const HkMarkSixGamePage: React.FC = () => {
     let cancelled = false;
     async function tick() {
       try {
-        const s = await apiGet<Hk6Status>('/api/game/hk-marksix/status');
+        const s = await apiGet<Hk6Status>('/api/game/hk-marksix/status', { timeout: 45000 });
         if (!cancelled) setStatus(s);
       } catch {
         if (!cancelled) setStatus(null);
@@ -182,6 +182,7 @@ const HkMarkSixGamePage: React.FC = () => {
       try {
         const r = await apiGet<{ success?: boolean; list?: Hk6HistoryRow[] }>(
           '/api/game/hk-marksix/history?limit=200',
+          { timeout: 45000 },
         );
         if (!cancelled && r.success && Array.isArray(r.list)) setHistoryRows(r.list);
       } catch {
@@ -334,7 +335,9 @@ const HkMarkSixGamePage: React.FC = () => {
             <p className="hk6-sub">
               {status?.currentPeriod
                 ? hk.subtitle(status.currentPeriod, status.countdownSec ?? '—')
-                : hk.subtitleLoading}
+                : status?.sync?.enabled && status.sync?.err
+                  ? hk.syncFailed(status.sync.err)
+                  : hk.subtitleLoading}
               {status?.sync?.enabled && status.sync.source ? (
                 <span className="hk6-sync-hint">
                   {' '}
