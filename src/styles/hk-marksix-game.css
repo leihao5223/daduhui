@@ -140,6 +140,14 @@
   max-width: 100%;
 }
 
+.hk6-draw-pending {
+  font-size: 0.52rem;
+  line-height: 1.35;
+  color: rgba(245, 243, 236, 0.38);
+  margin-top: 0.15rem;
+  max-width: 100%;
+}
+
 .hk6-ball {
   width: 1.35rem;
   height: 1.35rem;

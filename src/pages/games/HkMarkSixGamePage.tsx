@@ -41,6 +41,8 @@ type Hk6Status = {
   drawsCount?: number;
   currentPeriod?: string;
   countdownSec?: number;
+  /** 为 true 时表示本期号码已展示但仍处于亮牌/派彩延后窗口（见 HK6_LAG_SEC） */
+  lastDrawRevealPending?: boolean;
   sync?: {
     url?: string;
     enabled?: boolean;
@@ -194,47 +196,11 @@ const HkMarkSixGamePage: React.FC = () => {
       try {
         const s = await apiGet<Hk6Status>('/api/game/hk-marksix/status', { timeout: 45000 });
         if (!cancelled) {
-          // #region agent log
-          fetch('http://127.0.0.1:7583/ingest/3df9935a-40e5-45e4-9007-bbd3b69c0c3b', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '6a3aec' },
-            body: JSON.stringify({
-              sessionId: '6a3aec',
-              runId: 'pre-fix',
-              hypothesisId: 'C',
-              location: 'HkMarkSixGamePage.tsx:tick',
-              message: 'client status snapshot',
-              data: {
-                hasLastDraw: !!s?.lastDraw,
-                ballsIsArray: Array.isArray(s?.lastDraw?.balls),
-                ballsLen: s?.lastDraw?.balls?.length,
-                drawsCount: s?.drawsCount,
-                statusReqOk: true,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
           setStatus(s);
           setStatusReqFailed(false);
         }
       } catch {
         if (!cancelled) {
-          // #region agent log
-          fetch('http://127.0.0.1:7583/ingest/3df9935a-40e5-45e4-9007-bbd3b69c0c3b', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '6a3aec' },
-            body: JSON.stringify({
-              sessionId: '6a3aec',
-              runId: 'pre-fix',
-              hypothesisId: 'C',
-              location: 'HkMarkSixGamePage.tsx:tick',
-              message: 'client status fetch failed',
-              data: { statusReqOk: false },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
           setStatus(null);
           setStatusReqFailed(true);
         }
@@ -477,6 +443,11 @@ const HkMarkSixGamePage: React.FC = () => {
           {lastDrawDerivedSummary ? (
             <div className="hk6-draw-derived" title={lastDrawDerivedSummary}>
               {lastDrawDerivedSummary}
+            </div>
+          ) : null}
+          {status?.lastDrawRevealPending ? (
+            <div className="hk6-draw-pending">
+              （号码已同步；派彩可能仍在延后 {status.revealLagSec ?? 0}s 窗口内）
             </div>
           ) : null}
         </div>

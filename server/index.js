@@ -639,23 +639,6 @@ const server = http.createServer(async (req, res) => {
 
     /** ----- GET /api/game/hk-marksix/status ----- */
     if (req.method === 'GET' && p === '/api/game/hk-marksix/status') {
-      // #region agent log
-      if (typeof fetch === 'function') {
-        void fetch('http://127.0.0.1:7583/ingest/3df9935a-40e5-45e4-9007-bbd3b69c0c3b', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '6a3aec' },
-          body: JSON.stringify({
-            sessionId: '6a3aec',
-            runId: 'pre-fix',
-            hypothesisId: 'E',
-            location: 'index.js:hk-marksix/status',
-            message: 'handler entered',
-            data: {},
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-      }
-      // #endregion
       await hkMarkSix.touchHk6Sync(store, saveStore);
       hkMarkSix.flushPendingSettlements(store, saveStore);
       saveStore();
@@ -967,11 +950,35 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  const hasDist = fs.existsSync(WEB_DIST);
-  if (hasDist) {
-    console.log(`已启动 http://localhost:${PORT} — 网页和接口是同一个地址，用浏览器打开即可。`);
-  } else {
-    console.log(`接口已启动 http://localhost:${PORT}（若无网页请先在本目录执行：npm run build）`);
-  }
-});
+const PORT_MAX_TRY = Math.min(Math.max(Number(process.env.PORT_MAX_TRY || 20), 1), 100);
+
+function listenFrom(port, triesLeft) {
+  server.once('error', (err) => {
+    if (err && err.code === 'EADDRINUSE' && triesLeft > 0) {
+      const next = port + 1;
+      console.warn(`[pangxie] 端口 ${port} 已被占用（EADDRINUSE），尝试 ${next} …`);
+      listenFrom(next, triesLeft - 1);
+      return;
+    }
+    console.error(err);
+    process.exit(1);
+  });
+  server.listen(port, () => {
+    server.removeAllListeners('error');
+    const addr = server.address();
+    const actual = addr && typeof addr === 'object' ? addr.port : port;
+    if (actual !== PORT) {
+      console.warn(
+        `[pangxie] 实际监听端口 ${actual}（首选 ${PORT} 被占用）。若运行「npm run dev」，请设置环境变量 PANGXIE_DEV_API=http://127.0.0.1:${actual} 或与 webpack 代理一致。`,
+      );
+    }
+    const hasDist = fs.existsSync(WEB_DIST);
+    if (hasDist) {
+      console.log(`已启动 http://localhost:${actual} — 网页和接口是同一个地址，用浏览器打开即可。`);
+    } else {
+      console.log(`接口已启动 http://localhost:${actual}（若无网页请先在本目录执行：npm run build）`);
+    }
+  });
+}
+
+listenFrom(PORT, PORT_MAX_TRY);

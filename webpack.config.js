@@ -360,7 +360,7 @@ module.exports = (env = {}, argv) => {
       proxy: [
         {
           context: ['/api'],
-          target: 'http://localhost:3301',
+          target: process.env.PANGXIE_DEV_API || 'http://127.0.0.1:3301',
           changeOrigin: true,
         },
       ],
