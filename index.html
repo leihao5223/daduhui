@@ -23,6 +23,10 @@
     }
   </style>
   <script>
+    /* 只有下面这种情况才要改：网页在一个域名、接口在另一个域名。填接口根地址，不要尾斜杠，例如 https://api.xxx.com */
+    window.__PANGXIE_API_BASE__ = '';
+  </script>
+  <script>
     // 在 React 加载前立即设置主题，避免闪烁
     (function() {
       const isInIframe = window.self !== window.top;

@@ -290,6 +290,68 @@ function requireAdmin(req, res) {
   return true;
 }
 
+const WEB_DIST = path.join(__dirname, '..', 'dist');
+
+const STATIC_MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
+  '.map': 'application/json',
+};
+
+function safeFileUnderDir(baseDir, relFile) {
+  const full = path.resolve(path.join(baseDir, relFile));
+  const base = path.resolve(baseDir);
+  const rel = path.relative(base, full);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return full;
+}
+
+function tryServeWebpackDist(req, res, pathname) {
+  if ((req.method !== 'GET' && req.method !== 'HEAD') || pathname.startsWith('/api')) return false;
+  if (process.env.SERVE_STATIC === '0') return false;
+  if (!fs.existsSync(WEB_DIST)) return false;
+
+  const clean = pathname.split('?')[0] || '/';
+  const relFile = clean === '/' ? 'index.html' : clean.replace(/^\//, '');
+
+  const direct = safeFileUnderDir(WEB_DIST, relFile);
+  if (direct && fs.existsSync(direct) && fs.statSync(direct).isFile()) {
+    const ext = path.extname(direct).toLowerCase();
+    const mime = STATIC_MIME[ext] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': mime });
+    if (req.method === 'HEAD') {
+      res.end();
+      return true;
+    }
+    fs.createReadStream(direct).pipe(res);
+    return true;
+  }
+
+  const indexHtml = path.join(WEB_DIST, 'index.html');
+  if (fs.existsSync(indexHtml)) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    if (req.method === 'HEAD') {
+      res.end();
+      return true;
+    }
+    fs.createReadStream(indexHtml).pipe(res);
+    return true;
+  }
+  return false;
+}
+
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
@@ -877,6 +939,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (tryServeWebpackDist(req, res, p)) {
+      return;
+    }
+
     json(res, 404, { success: false, message: 'Not found' });
   } catch (err) {
     console.error(err);
@@ -885,5 +951,10 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`API listening on http://localhost:${PORT}`);
+  const hasDist = fs.existsSync(WEB_DIST);
+  if (hasDist) {
+    console.log(`已启动 http://localhost:${PORT} — 网页和接口是同一个地址，用浏览器打开即可。`);
+  } else {
+    console.log(`接口已启动 http://localhost:${PORT}（若无网页请先在本目录执行：npm run build）`);
+  }
 });

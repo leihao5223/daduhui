@@ -5,6 +5,7 @@
     "dev": "webpack serve",
     "dev:mock": "webpack serve --env mockApi",
     "server": "node server/index.js",
+    "start": "node server/index.js",
     "build": "webpack --mode production",
     "typecheck": "tsc --noEmit"
   },
