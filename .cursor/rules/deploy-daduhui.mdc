@@ -1,0 +1,24 @@
+---
+description: 大都汇前端部署 — 只推 daduhui 仓库触达 Vercel
+alwaysApply: true
+---
+
+# 部署约定
+
+- **Vercel 项目 daduhui** 绑定的是 **`https://github.com/leihao5223/daduhui`**。
+- 源码在 monorepo 的 **`pangxie/`** 子目录；更新线上时 **只推 `daduhui` 远程**，不要指望只推 `origin`（pangxie）能更新 Vercel。
+
+在仓库根 **`D:\123`** 执行（有改动并 commit 之后）：
+
+```bash
+git subtree split --prefix=pangxie -b pangxie-export
+git push daduhui pangxie-export:main --force
+```
+
+`daduhui` 远程：`https://github.com/leihao5223/daduhui.git`（若未配置：`git remote add daduhui https://github.com/leihao5223/daduhui.git`）。
+
+# Vercel 侧（正常运行）
+
+- **构建**：`vercel.json` 已指定 `npm ci` + `npm run build`，输出 **`dist`**；项目 **Root Directory 留空（仓库根即 pangxie 内容）**。
+- **关键环境变量**：生产构建必须配置 **`API_BASE`**（**无尾斜杠**），值为 **公网可访问的 Node API 根地址**（例如 `https://api.你的域名`）。未配置时前端会请求 Vercel 同源 `/api`，静态部署下会得到 HTML 而非 JSON，登录/充值等接口不可用。
+- **API 本体**：`pangxie/server/` 需单独托管（VPS / Railway 等）；服务端需允许浏览器来源（当前服务端已设较宽的 CORS）。
