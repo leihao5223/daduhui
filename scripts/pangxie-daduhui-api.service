@@ -1,0 +1,17 @@
+[Unit]
+Description=Pangxie Daduhui API (isolated under /srv/isolated/pangxie-daduhui)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/srv/isolated/pangxie-daduhui
+Environment=NODE_ENV=production
+Environment=PORT=3301
+Environment=HOME=/root
+ExecStart=/root/.nvm/versions/node/v20.20.2/bin/node server/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
