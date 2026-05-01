@@ -40,6 +40,21 @@ function numbersFromOpenCode(openCode) {
   return sly;
 }
 
+/** marksix6 等为东八区墙钟时间，显式 +08:00，避免 Node 按本机时区误解析成「未来」导致整表被 LAG 隐藏 */
+function openTimeToIsoUtc(openTime) {
+  if (openTime == null || openTime === '') return null;
+  const raw = String(openTime).trim().replace(/\//g, '-');
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/.exec(raw);
+  if (m) {
+    const tagged = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}+08:00`;
+    const ms = Date.parse(tagged);
+    if (!Number.isNaN(ms)) return new Date(ms).toISOString();
+  }
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 function rowFromExpectNumbers(expect, numbers, openTime, openCode) {
   const expectStr = String(expect || '').trim();
   if (!expectStr) return null;
@@ -53,12 +68,7 @@ function rowFromExpectNumbers(expect, numbers, openTime, openCode) {
   if (raw.some((x) => !x)) return null;
   const balls = raw.slice(0, 6);
   const special = raw[6];
-  let drawnAt = null;
-  if (openTime) {
-    const t = String(openTime).replace(/\//g, '-');
-    const d = new Date(t);
-    if (!Number.isNaN(d.getTime())) drawnAt = d.toISOString();
-  }
+  const drawnAt = openTime ? openTimeToIsoUtc(openTime) : null;
   return { period: `HK${expectStr}`, balls, special, drawnAt };
 }
 

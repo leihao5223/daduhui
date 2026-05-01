@@ -37,12 +37,27 @@ function isDrawVisibleNow(draw) {
   return Date.now() >= due;
 }
 
+function lagStrictHidden() {
+  return process.env.HK6_LAG_STRICT === '1';
+}
+
 function getLastVisibleDraw(draws) {
   if (!Array.isArray(draws) || !draws.length) return null;
   for (let i = draws.length - 1; i >= 0; i--) {
     if (isDrawVisibleNow(draws[i])) return draws[i];
   }
+  if (lagSec() > 0 && !lagStrictHidden()) {
+    return draws[draws.length - 1];
+  }
   return null;
+}
+
+function drawsForHistoryList(draws) {
+  if (!Array.isArray(draws) || !draws.length) return [];
+  const vis = draws.filter((d) => isDrawVisibleNow(d));
+  if (vis.length > 0) return vis;
+  if (lagSec() > 0 && !lagStrictHidden()) return draws;
+  return vis;
 }
 
 function enqueuePendingSettlement(store, drawRow, saveStore) {
@@ -235,8 +250,8 @@ function getHistory(store, limit) {
   ensureHk6(store);
   const cap = maxDrawCap();
   const lim = Math.min(Math.max(Number(limit) || cap, 1), cap);
-  const visible = store.hkMarkSix.draws.filter((d) => isDrawVisibleNow(d));
-  const list = [...visible].reverse().slice(0, lim);
+  const source = drawsForHistoryList(store.hkMarkSix.draws);
+  const list = [...source].reverse().slice(0, lim);
   return {
     success: true,
     list: list.map((d) => ({
