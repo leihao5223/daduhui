@@ -471,7 +471,12 @@ const server = http.createServer(async (req, res) => {
       }
       finance.ensureUserFinance(user, store);
       saveStore();
-      json(res, 200, finance.buildMeSummary(user, store));
+      const base = finance.buildMeSummary(user, store);
+      const hkRoom = hkMarkSix.getUserRoomStats(store, uid);
+      base.data.hk6Turnover = hkRoom.turnover;
+      base.data.hk6Pnl = hkRoom.pnl;
+      base.data.hk6Rebate = hkRoom.rebate;
+      json(res, 200, base);
       return;
     }
 

@@ -59,8 +59,8 @@ export const hkMarkSixPlayCatalog: MarkSixCategory[] = [
     playTypes: [
       {
         id: 'special-ball',
-        name: '特码（示例号段）',
-        options: Array.from({ length: 12 }, (_, i) => {
+        name: '特码（1-49）',
+        options: Array.from({ length: 49 }, (_, i) => {
           const n = String(i + 1).padStart(2, '0');
           return { id: `ball-${n}`, label: n, odds: 42 };
         }),

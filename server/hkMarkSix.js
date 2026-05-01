@@ -13,7 +13,7 @@ const HK6_KEYS = new Set([
   'main-combo:big-even',
   'main-combo:small-odd',
   'main-combo:small-even',
-  ...Array.from({ length: 12 }, (_, i) => {
+  ...Array.from({ length: 49 }, (_, i) => {
     const n = String(i + 1).padStart(2, '0');
     return `special-ball:ball-${n}`;
   }),
@@ -176,6 +176,20 @@ function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
   };
 }
 
+function getUserRoomStats(store, userId) {
+  ensureHk6(store);
+  const uid = String(userId || '');
+  let turnover = 0;
+  for (const b of store.hkMarkSix.bets) {
+    if (String(b.userId) === uid) turnover += Number(b.total) || 0;
+  }
+  return {
+    turnover: Number(turnover.toFixed(2)),
+    pnl: null,
+    rebate: null,
+  };
+}
+
 module.exports = {
   HK6_KEYS,
   ensureHk6,
@@ -183,4 +197,5 @@ module.exports = {
   getHistory,
   maybeAdvanceDraw,
   placeBet,
+  getUserRoomStats,
 };

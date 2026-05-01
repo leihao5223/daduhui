@@ -24,12 +24,68 @@ type Hk6HistoryRow = {
   time: string;
 };
 
+const HK_RED = new Set([
+  '01',
+  '02',
+  '07',
+  '08',
+  '12',
+  '13',
+  '18',
+  '19',
+  '23',
+  '24',
+  '29',
+  '30',
+  '34',
+  '35',
+  '40',
+  '45',
+  '46',
+]);
+const HK_BLUE = new Set([
+  '03',
+  '04',
+  '09',
+  '10',
+  '14',
+  '15',
+  '20',
+  '25',
+  '26',
+  '31',
+  '36',
+  '37',
+  '41',
+  '42',
+  '47',
+  '48',
+]);
+const HK_GREEN = new Set([
+  '05',
+  '06',
+  '11',
+  '16',
+  '17',
+  '21',
+  '22',
+  '27',
+  '28',
+  '32',
+  '33',
+  '38',
+  '39',
+  '43',
+  '44',
+  '49',
+]);
+
 function ballTone(num: string): 'r' | 'b' | 'g' {
-  const k = Number(num) || 0;
-  const m = k % 3;
-  if (m === 0) return 'r';
-  if (m === 1) return 'b';
-  return 'g';
+  const n = String(num).padStart(2, '0');
+  if (HK_RED.has(n)) return 'r';
+  if (HK_BLUE.has(n)) return 'b';
+  if (HK_GREEN.has(n)) return 'g';
+  return 'r';
 }
 
 const QUICK_STAKES = [10, 20, 50, 100, 200];
@@ -46,6 +102,9 @@ const HkMarkSixGamePage: React.FC = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [betting, setBetting] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
+  const [hkTurnover, setHkTurnover] = useState<number | null>(null);
+  const [hkPnl, setHkPnl] = useState<number | null>(null);
+  const [hkRebate, setHkRebate] = useState<number | null>(null);
 
   const activeCategory = useMemo(
     () => hkMarkSixPlayCatalog.find((c) => c.id === activeCategoryId),
@@ -55,15 +114,32 @@ const HkMarkSixGamePage: React.FC = () => {
   const refreshBalance = useCallback(async () => {
     if (!getToken()) {
       setBalance(null);
+      setHkTurnover(null);
+      setHkPnl(null);
+      setHkRebate(null);
       return;
     }
     try {
-      const r = await apiGet<{ success?: boolean; data?: { available?: number } }>('/api/me/summary');
-      if (r.success && r.data && typeof r.data.available === 'number') {
-        setBalance(r.data.available);
+      const r = await apiGet<{
+        success?: boolean;
+        data?: {
+          available?: number;
+          hk6Turnover?: number;
+          hk6Pnl?: number | null;
+          hk6Rebate?: number | null;
+        };
+      }>('/api/me/summary');
+      if (r.success && r.data) {
+        if (typeof r.data.available === 'number') setBalance(r.data.available);
+        if (typeof r.data.hk6Turnover === 'number') setHkTurnover(r.data.hk6Turnover);
+        setHkPnl(typeof r.data.hk6Pnl === 'number' ? r.data.hk6Pnl : null);
+        setHkRebate(typeof r.data.hk6Rebate === 'number' ? r.data.hk6Rebate : null);
       }
     } catch {
       setBalance(null);
+      setHkTurnover(null);
+      setHkPnl(null);
+      setHkRebate(null);
     }
   }, []);
 
@@ -188,16 +264,20 @@ const HkMarkSixGamePage: React.FC = () => {
         </div>
         <div className="hk6-stats">
           <span>
-            {hk.statsBalance} <b>{balance != null ? balance.toFixed(2) : hk.statsDash}</b>
+            {hk.statsBalance}{' '}
+            <b>{balance != null ? balance.toFixed(2) : hk.statsDash}</b>
           </span>
           <span>
-            {hk.statsFlow} <b>{hk.statsDash}</b>
+            {hk.statsFlow}{' '}
+            <b>{hkTurnover != null ? hkTurnover.toFixed(2) : hk.statsDash}</b>
           </span>
           <span>
-            {hk.statsPnl} <b>{hk.statsDash}</b>
+            {hk.statsPnl}{' '}
+            <b>{hkPnl != null ? hkPnl.toFixed(2) : hk.statsDash}</b>
           </span>
           <span>
-            {hk.statsRebate} <b>{hk.statsDash}</b>
+            {hk.statsRebate}{' '}
+            <b>{hkRebate != null ? hkRebate.toFixed(2) : hk.statsDash}</b>
           </span>
         </div>
       </header>
