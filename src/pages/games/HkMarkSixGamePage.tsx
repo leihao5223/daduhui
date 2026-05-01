@@ -6,6 +6,7 @@ import { getToken } from '../../lib/auth';
 import '../../styles/hk-marksix-game.css';
 import { gamesContent } from '../../content/games';
 import { HkMarkSixComboPanel } from './HkMarkSixComboPanel';
+import { HkMarkSixQuickBetPanel, type QuickBetLabels } from './HkMarkSixQuickBetPanel';
 
 type Hk6Status = {
   success?: boolean;
@@ -187,8 +188,67 @@ const HkMarkSixGamePage: React.FC = () => {
     };
   }, [historyOpen]);
 
+  const [comboSubTab, setComboSubTab] = useState<'manual' | 'quick'>('manual');
+
+  const quickBetLabels = useMemo<QuickBetLabels>(
+    () => ({
+      dragBlock: hk.quickDragNums,
+      pengBlock: hk.quickPeng,
+      numPattern: hk.quickNumPat,
+      sz2Two: hk.quickSz2Two,
+      sz2One: hk.quickSz2One,
+      sz3: hk.quickSz3,
+      eq2: hk.quickEq2,
+      e2t: hk.quickE2t,
+      tc: hk.quickTc,
+      bucketHint: hk.quickBucket,
+      bank: hk.quickBank,
+      tuo: hk.quickTuo,
+      clear: hk.quickClear,
+      genDrag: hk.quickGen,
+      szlWl: hk.quickDragZT,
+      szlHit: hk.quickSzlHit,
+      szlMiss: hk.quickSzlMiss,
+      szlPattern: hk.quickSzlPat,
+      szl2: hk.quickSzl2,
+      szl3: hk.quickSzl3,
+      szl4: hk.quickSzl4,
+      wl2: hk.quickWl2,
+      wl3: hk.quickWl3,
+      wl4: hk.quickWl4,
+      bankZ: hk.quickBankZ,
+      tuoZ: hk.quickTuoZ,
+      bankTail: hk.quickBankTail,
+      tuoTail: hk.quickTuoTail,
+      pengKind: hk.quickPengKind,
+      pengZodiac: hk.quickPengZ,
+      pengTail: hk.quickPengT,
+      pengZT: hk.quickPengZT,
+      pengSz3: hk.quickPengSz3,
+      zLeft: hk.quickZLeft,
+      zRight: hk.quickZRight,
+      zThird: hk.quickZThird,
+      lmSubtype: hk.quickLmSub,
+      genPeng: hk.quickGenPeng,
+      capWarn: hk.quickCap,
+      empty: hk.quickEmpty,
+      added: hk.quickAdded,
+      tailPickA: hk.quickTailA,
+      tailPickB: hk.quickTailB,
+    }),
+    [hk],
+  );
+
   const addComboLine = useCallback((key: string) => {
     setSelectedKeys((prev) => new Set(prev).add(key));
+  }, []);
+
+  const addComboLines = useCallback((keys: string[]) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      for (const k of keys) next.add(k);
+      return next;
+    });
   }, []);
 
   const toggleOption = useCallback((playTypeId: string, optionId: string) => {
@@ -250,6 +310,10 @@ const HkMarkSixGamePage: React.FC = () => {
       setBetting(false);
     }
   };
+
+  useEffect(() => {
+    if (activeCategoryId !== 'combo') setComboSubTab('manual');
+  }, [activeCategoryId]);
 
   return (
     <div className="hk6-game">
@@ -324,16 +388,44 @@ const HkMarkSixGamePage: React.FC = () => {
         </aside>
         <div className="hk6-options-pane">
           {activeCategoryId === 'combo' ? (
-            <HkMarkSixComboPanel
-              onAddKey={addComboLine}
-              existingKeys={selectedKeys}
-              labels={{
-                mode: hk.comboMode,
-                add: hk.comboAdd,
-                clear: hk.comboClear,
-                pickMore: (n) => `${hk.comboPickPrefix} ${n} ${hk.comboPickUnit}`,
-              }}
-            />
+            <>
+              <div className="hk6-combo-tabs" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  className={`hk6-combo-tab ${comboSubTab === 'manual' ? 'hk6-combo-tab--on' : ''}`}
+                  onClick={() => setComboSubTab('manual')}
+                >
+                  {hk.quickTabManual}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className={`hk6-combo-tab ${comboSubTab === 'quick' ? 'hk6-combo-tab--on' : ''}`}
+                  onClick={() => setComboSubTab('quick')}
+                >
+                  {hk.quickTabQuick}
+                </button>
+              </div>
+              {comboSubTab === 'manual' ? (
+                <HkMarkSixComboPanel
+                  onAddKey={addComboLine}
+                  existingKeys={selectedKeys}
+                  labels={{
+                    mode: hk.comboMode,
+                    add: hk.comboAdd,
+                    clear: hk.comboClear,
+                    pickMore: (n) => `${hk.comboPickPrefix} ${n} ${hk.comboPickUnit}`,
+                  }}
+                />
+              ) : (
+                <HkMarkSixQuickBetPanel
+                  onAddKeys={addComboLines}
+                  existingKeys={selectedKeys}
+                  labels={quickBetLabels}
+                />
+              )}
+            </>
           ) : (
             activeCategory?.playTypes.map((pt) => (
               <section key={pt.id} className="hk6-play-section">

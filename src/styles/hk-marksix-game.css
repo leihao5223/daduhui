@@ -520,3 +520,159 @@
   font-size: 0.72rem;
   cursor: pointer;
 }
+
+.hk6-combo-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+}
+
+.hk6-combo-tab {
+  flex: 1;
+  padding: 0.45rem 0.35rem;
+  border-radius: 8px;
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  background: rgba(12, 14, 20, 0.65);
+  color: rgba(245, 243, 236, 0.7);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.hk6-combo-tab--on {
+  border-color: #c5a059;
+  background: #c5a059;
+  color: #1a1d24;
+  font-weight: 700;
+}
+
+.hk6-quick {
+  padding-bottom: 0.35rem;
+}
+
+.hk6-quick-section {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(197, 160, 89, 0.12);
+}
+
+.hk6-quick-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.hk6-quick-h {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  color: #c5a059;
+}
+
+.hk6-quick-sub,
+.hk6-quick-bucket-hint {
+  margin: 0.25rem 0;
+  font-size: 0.65rem;
+  color: rgba(245, 243, 236, 0.48);
+  line-height: 1.35;
+}
+
+.hk6-quick-select {
+  width: 100%;
+  margin-bottom: 0.35rem;
+}
+
+.hk6-quick-bucket-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0.35rem 0;
+}
+
+.hk6-quick-btab {
+  flex: 1;
+  padding: 0.4rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 12, 18, 0.9);
+  color: rgba(245, 243, 236, 0.65);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.hk6-quick-btab--on {
+  border-color: rgba(197, 160, 89, 0.55);
+  color: #c5a059;
+}
+
+.hk6-quick-mini {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  font-size: 0.65rem;
+  margin-bottom: 0.35rem;
+  color: rgba(245, 243, 236, 0.82);
+}
+
+.hk6-quick-x {
+  padding: 0.15rem 0.45rem;
+  border: none;
+  border-radius: 6px;
+  background: rgba(166, 52, 52, 0.35);
+  color: #fff;
+  font-size: 0.62rem;
+  cursor: pointer;
+}
+
+.hk6-quick-grid {
+  max-height: 36vh;
+}
+
+.hk6-num--bank {
+  box-shadow: inset 0 0 0 2px rgba(86, 156, 214, 0.65);
+}
+
+.hk6-num--tuo {
+  box-shadow: inset 0 0 0 2px rgba(197, 160, 89, 0.45);
+}
+
+.hk6-quick-gen {
+  width: 100%;
+  margin-top: 0.45rem;
+}
+
+.hk6-quick-row {
+  margin-bottom: 0.35rem;
+}
+
+.hk6-quick-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  color: rgba(245, 243, 236, 0.75);
+}
+
+.hk6-quick-k {
+  display: block;
+  margin: 0.35rem 0 0.25rem;
+  font-size: 0.68rem;
+  color: rgba(245, 243, 236, 0.5);
+}
+
+.hk6-quick-preview {
+  margin: 0 0 0.45rem;
+  font-size: 0.68rem;
+  color: rgba(245, 243, 236, 0.55);
+}
+
+.hk6-quick-peng-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.hk6-quick-peng-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
