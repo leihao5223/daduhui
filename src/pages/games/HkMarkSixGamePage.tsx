@@ -181,7 +181,7 @@ const HkMarkSixGamePage: React.FC = () => {
     void (async () => {
       try {
         const r = await apiGet<{ success?: boolean; list?: Hk6HistoryRow[] }>(
-          '/api/game/hk-marksix/history?limit=30',
+          '/api/game/hk-marksix/history?limit=200',
         );
         if (!cancelled && r.success && Array.isArray(r.list)) setHistoryRows(r.list);
       } catch {

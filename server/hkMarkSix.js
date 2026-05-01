@@ -6,6 +6,11 @@ const rules = require('./hkMarkSixRules');
 const finance = require('./finance');
 const hkMarkSixSync = require('./hkMarkSixSync');
 
+function maxDrawCap() {
+  const n = Number(process.env.HK6_MAX_DRAWS || 200);
+  return Math.min(Math.max(n, 1), 500);
+}
+
 function ensureHk6(store) {
   if (!store.hkMarkSix || typeof store.hkMarkSix !== 'object') {
     store.hkMarkSix = { periodBase: 2026000, draws: [], bets: [] };
@@ -13,7 +18,8 @@ function ensureHk6(store) {
   if (!Array.isArray(store.hkMarkSix.draws)) store.hkMarkSix.draws = [];
   if (!Array.isArray(store.hkMarkSix.bets)) store.hkMarkSix.bets = [];
   if (typeof store.hkMarkSix.periodBase !== 'number') store.hkMarkSix.periodBase = 2026000;
-  if (store.hkMarkSix.draws.length === 0) {
+  const useExternal = process.env.HK6_EXTERNAL_SYNC !== '0';
+  if (store.hkMarkSix.draws.length === 0 && !useExternal) {
     store.hkMarkSix.draws.push({
       period: 'HK2026000',
       balls: ['06', '12', '18', '22', '31', '44'],
@@ -75,6 +81,22 @@ function getStatus(store) {
   const secInCycle = now % cycle;
   const countdownSec = cycle - secInCycle;
   const last = store.hkMarkSix.draws[store.hkMarkSix.draws.length - 1];
+  if (!last) {
+    const meta = store.hkMarkSix.meta || {};
+    return {
+      success: true,
+      currentPeriod: null,
+      countdownSec,
+      lastDraw: null,
+      sync: {
+        url: process.env.HK6_SYNC_URL || hkMarkSixSync.DEFAULT_SYNC_URL,
+        enabled: process.env.HK6_EXTERNAL_SYNC !== '0',
+        source: meta.lastSyncSource || null,
+        at: meta.lastSyncAt || null,
+        err: meta.lastSyncError || null,
+      },
+    };
+  }
   const m = /^HK(\d+)$/.exec(String(last.period || ''));
   const n = m ? Number(m[1]) : store.hkMarkSix.periodBase;
   const nextPeriod = `HK${n + 1}`;
@@ -101,7 +123,8 @@ function getStatus(store) {
 
 function getHistory(store, limit) {
   ensureHk6(store);
-  const lim = Math.min(Math.max(Number(limit) || 20, 1), 100);
+  const cap = maxDrawCap();
+  const lim = Math.min(Math.max(Number(limit) || cap, 1), cap);
   const list = [...store.hkMarkSix.draws].reverse().slice(0, lim);
   return {
     success: true,
@@ -109,7 +132,7 @@ function getHistory(store, limit) {
       period: d.period,
       balls: [...d.balls, d.special].join(','),
       numbers: { main: d.balls, special: d.special },
-      time: new Date(d.drawnAt).toLocaleString('zh-CN'),
+      time: d.drawnAt ? new Date(d.drawnAt).toLocaleString('zh-CN') : '—',
     })),
   };
 }
@@ -134,7 +157,8 @@ function maybeAdvanceFake(store, saveStore) {
       drawnAt: new Date().toISOString(),
     };
     store.hkMarkSix.draws.push(drawRow);
-    if (store.hkMarkSix.draws.length > 500) store.hkMarkSix.draws.splice(0, store.hkMarkSix.draws.length - 500);
+    const cap = maxDrawCap();
+    if (store.hkMarkSix.draws.length > cap) store.hkMarkSix.draws.splice(0, store.hkMarkSix.draws.length - cap);
     saveStore();
     settleBetsForCompletedDraw(store, drawRow, saveStore);
   }
@@ -158,6 +182,10 @@ function maybeAdvanceDraw(store, saveStore) {
 
 async function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
   await refreshDraws(store, saveStore);
+  const periodNow = getStatus(store).currentPeriod;
+  if (!periodNow) {
+    return { ok: false, status: 503, body: { success: false, message: '开奖数据加载中，请稍后再试' } };
+  }
   const linesIn = Array.isArray(body.lines) ? body.lines : [];
   const lines = [];
   for (const raw of linesIn) {
@@ -190,7 +218,7 @@ async function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
   }
   user.balance = Number((user.balance - total).toFixed(2));
   const betId = `hk6_${crypto.randomBytes(6).toString('hex')}`;
-  const period = getStatus(store).currentPeriod;
+  const period = periodNow;
   store.hkMarkSix.bets.push({
     id: betId,
     userId,
