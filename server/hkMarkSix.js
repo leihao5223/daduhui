@@ -104,6 +104,35 @@ function fakeBallsFromSeed(seed) {
   return { balls: arr, special: String(spec).padStart(2, '0') };
 }
 
+function randomFallbackEnabled() {
+  return process.env.HK6_RANDOM_FALLBACK !== '0';
+}
+
+/** 外部源完全拉不到且本地尚无开奖记录时，生成一期随机号码（设 HK6_RANDOM_FALLBACK=0 可关闭） */
+function appendRandomFallbackDraw(store, saveStore) {
+  ensureHk6(store);
+  if (!randomFallbackEnabled()) return;
+  if (store.hkMarkSix.draws.length > 0) return;
+  const n = store.hkMarkSix.periodBase;
+  const nextPeriod = `HK${n + 1}`;
+  const seed = Number((crypto.randomBytes(8).readBigUInt64BE() + BigInt(Date.now())) % BigInt(1_000_000_000));
+  const { balls, special } = fakeBallsFromSeed(seed);
+  const drawRow = {
+    period: nextPeriod,
+    balls,
+    special,
+    drawnAt: new Date().toISOString(),
+    ingestedAt: new Date().toISOString(),
+  };
+  store.hkMarkSix.draws.push(drawRow);
+  if (!store.hkMarkSix.meta) store.hkMarkSix.meta = {};
+  store.hkMarkSix.meta.lastSyncSource = 'random_fallback';
+  store.hkMarkSix.meta.lastSyncError = 'random_fallback';
+  store.hkMarkSix.meta.lastSyncAt = new Date().toISOString();
+  saveStore();
+  settleBetsForCompletedDraw(store, drawRow, saveStore);
+}
+
 function settleBetsForCompletedDrawNow(store, drawRow, saveStore) {
   ensureHk6(store);
   const period = drawRow.period;
@@ -255,6 +284,13 @@ async function refreshDraws(store, saveStore) {
     return;
   }
   const r = await hkMarkSixSync.tryIngestExternalDraw(store, saveStore, settleBetsForCompletedDraw);
+  if (randomFallbackEnabled()) {
+    const meta = store.hkMarkSix.meta || {};
+    const failed = r.error === 'fetch_failed' || meta.lastSyncError === 'fetch_failed';
+    if (failed && store.hkMarkSix.draws.length === 0) {
+      appendRandomFallbackDraw(store, saveStore);
+    }
+  }
   if (!r.updated && process.env.HK6_SYNC_FALLBACK_FAKE === '1') {
     maybeAdvanceFake(store, saveStore);
   }

@@ -15,7 +15,9 @@ export const gamesContent = {
     syncFailed: (code: string) =>
       code === 'fetch_failed'
         ? '同步失败：服务器连不上开奖源（请检查出站网络、防火墙或代理）'
-        : code === 'period_not_newer'
+        : code === 'random_fallback'
+          ? '未拉到外部开奖，已使用随机号码兜底（恢复同步后将自动以源为准更新）'
+          : code === 'period_not_newer'
           ? '同步异常：本地开奖期号与源不一致，可清空 data/store.json 中 hkMarkSix.draws 后重启'
           : `同步失败（${code}）`,
     subtitle: (period: string, sec: number | string) =>
