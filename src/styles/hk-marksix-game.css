@@ -379,3 +379,144 @@
   color: #c5a059;
   cursor: pointer;
 }
+
+/* 复式（连码 / 不中 / 肖连 / 尾连 / 六肖） */
+.hk6-combo {
+  padding: 0.25rem 0 0.5rem;
+}
+
+.hk6-combo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.hk6-combo-label {
+  font-size: 0.72rem;
+  color: rgba(245, 243, 236, 0.55);
+  flex-shrink: 0;
+}
+
+.hk6-combo-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.4rem 0.35rem;
+  border-radius: 8px;
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  background: rgba(8, 10, 16, 0.92);
+  color: rgba(245, 243, 236, 0.92);
+  font-size: 0.72rem;
+}
+
+.hk6-combo-hint {
+  margin: 0 0 0.35rem;
+  font-size: 0.65rem;
+  line-height: 1.35;
+  color: rgba(245, 243, 236, 0.45);
+}
+
+.hk6-combo-count {
+  margin: 0 0 0.4rem;
+  font-size: 0.7rem;
+  color: #c5a059;
+}
+
+.hk6-combo-grid--nums {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.28rem;
+  margin-bottom: 0.5rem;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.hk6-combo-cell {
+  padding: 0.35rem 0.15rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(12, 14, 20, 0.55);
+  color: rgba(245, 243, 236, 0.88);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.hk6-combo-cell--on {
+  border-color: rgba(197, 160, 89, 0.75);
+  background: rgba(197, 160, 89, 0.18);
+}
+
+.hk6-combo-zodiac {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.hk6-combo-zbtn {
+  padding: 0.4rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  background: rgba(12, 14, 20, 0.55);
+  color: rgba(245, 243, 236, 0.85);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.hk6-combo-zbtn--on {
+  border-color: #c5a059;
+  background: rgba(197, 160, 89, 0.22);
+  color: #fff;
+}
+
+.hk6-combo-tails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.hk6-combo-tbtn {
+  min-width: 2.75rem;
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  background: rgba(12, 14, 20, 0.55);
+  color: rgba(245, 243, 236, 0.88);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.hk6-combo-tbtn--on {
+  border-color: #c5a059;
+  background: rgba(197, 160, 89, 0.2);
+}
+
+.hk6-combo-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.hk6-combo-add {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #c5a059, #8b6914);
+  color: #120e06;
+  font-weight: 700;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.hk6-combo-clear {
+  flex: 0 0 5rem;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #c5a059;
+  font-size: 0.72rem;
+  cursor: pointer;
+}

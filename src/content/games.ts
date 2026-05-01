@@ -40,5 +40,10 @@ export const gamesContent = {
     row2Aria: '上期开奖',
     betPlateAria: '下注盘',
     summaryAria: '投注汇总',
+    comboMode: '复式玩法',
+    comboAdd: '加入注单',
+    comboClear: '清空当前所选',
+    comboPickPrefix: '请按玩法选满',
+    comboPickUnit: '项',
   },
 } as const;

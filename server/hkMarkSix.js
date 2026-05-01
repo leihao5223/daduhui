@@ -1,23 +1,9 @@
 /**
- * 香港六合彩：状态、历史、下注（演示开奖节奏 + 持久化注单）
+ * 香港六合彩：状态、历史、下注、按规则结算
  */
 const crypto = require('crypto');
-
-/** 与前端 playCatalog 注项 key 一致：playTypeId:optionId */
-const HK6_KEYS = new Set([
-  'main-size:big',
-  'main-size:small',
-  'main-parity:odd',
-  'main-parity:even',
-  'main-combo:big-odd',
-  'main-combo:big-even',
-  'main-combo:small-odd',
-  'main-combo:small-even',
-  ...Array.from({ length: 49 }, (_, i) => {
-    const n = String(i + 1).padStart(2, '0');
-    return `special-ball:ball-${n}`;
-  }),
-]);
+const rules = require('./hkMarkSixRules');
+const finance = require('./finance');
 
 function ensureHk6(store) {
   if (!store.hkMarkSix || typeof store.hkMarkSix !== 'object') {
@@ -37,16 +23,48 @@ function ensureHk6(store) {
 }
 
 function fakeBallsFromSeed(seed) {
-  const nums = new Set();
+  const arr = [];
   let k = 0;
-  while (nums.size < 6) {
+  while (arr.length < 6) {
     const n = 1 + Math.floor((Math.abs(Math.sin(seed + k * 13)) * 10000) % 49);
-    nums.add(String(n).padStart(2, '0'));
+    const s = String(n).padStart(2, '0');
+    if (!arr.includes(s)) arr.push(s);
     k += 1;
   }
-  const arr = [...nums].sort();
   const spec = 1 + Math.floor((Math.abs(Math.cos(seed)) * 10000) % 49);
   return { balls: arr, special: String(spec).padStart(2, '0') };
+}
+
+function settleBetsForCompletedDraw(store, drawRow, saveStore) {
+  ensureHk6(store);
+  const period = drawRow.period;
+  const pending = store.hkMarkSix.bets.filter((b) => b.period === period && b.status === '已接单');
+  for (const bet of pending) {
+    let gross = 0;
+    for (const line of bet.lines) {
+      const odds = line.odds != null ? line.odds : rules.getDefaultOdds(line.key);
+      const { payout } = rules.settleLine(line.key, line.stake, odds, {
+        balls: drawRow.balls,
+        special: drawRow.special,
+      });
+      gross += payout;
+    }
+    const user = (store.users || []).find((u) => u.id === bet.userId);
+    if (user && gross > 0) {
+      user.balance = Number((Number(user.balance) + gross).toFixed(2));
+      finance.appendLedgerEntry(store, user.id, {
+        type: 'hk6_settle',
+        title: '香港六合彩-派彩',
+        delta: gross,
+        balanceAfter: user.balance,
+        meta: { betId: bet.id, period },
+      });
+    }
+    bet.status = '已结算';
+    bet.payout = Number(gross.toFixed(2));
+    bet.settledAt = new Date().toISOString();
+  }
+  if (pending.length) saveStore();
 }
 
 function getStatus(store) {
@@ -87,7 +105,7 @@ function getHistory(store, limit) {
   };
 }
 
-function maybeAdvanceDraw(store) {
+function maybeAdvanceDraw(store, saveStore) {
   ensureHk6(store);
   const cycle = 180;
   const now = Math.floor(Date.now() / 1000);
@@ -100,18 +118,21 @@ function maybeAdvanceDraw(store) {
     const n = m ? Number(m[1]) : store.hkMarkSix.periodBase;
     const nextPeriod = `HK${n + 1}`;
     const { special, balls } = fakeBallsFromSeed(bucket + n);
-    store.hkMarkSix.draws.push({
+    const drawRow = {
       period: nextPeriod,
       balls,
       special,
       drawnAt: new Date().toISOString(),
-    });
+    };
+    store.hkMarkSix.draws.push(drawRow);
     if (store.hkMarkSix.draws.length > 500) store.hkMarkSix.draws.splice(0, store.hkMarkSix.draws.length - 500);
+    saveStore();
+    settleBetsForCompletedDraw(store, drawRow, saveStore);
   }
 }
 
 function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
-  maybeAdvanceDraw(store);
+  maybeAdvanceDraw(store, saveStore);
   const linesIn = Array.isArray(body.lines) ? body.lines : [];
   const lines = [];
   for (const raw of linesIn) {
@@ -125,14 +146,15 @@ function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
   let total = 0;
   const normalized = [];
   for (const { key, stake } of lines) {
-    if (!HK6_KEYS.has(key)) {
+    if (!rules.validateHk6Key(key).ok) {
       return { ok: false, status: 400, body: { success: false, message: `无效注项: ${key}` } };
     }
     if (!Number.isFinite(stake) || stake <= 0) {
       return { ok: false, status: 400, body: { success: false, message: '每注金额须大于 0' } };
     }
+    const odds = rules.getDefaultOdds(key);
     total += stake;
-    normalized.push({ key, stake });
+    normalized.push({ key, stake, odds });
   }
   const totalAmount = body.totalAmount != null ? Number(body.totalAmount) : null;
   if (totalAmount != null && Math.abs(totalAmount - total) > 0.001) {
@@ -180,22 +202,27 @@ function getUserRoomStats(store, userId) {
   ensureHk6(store);
   const uid = String(userId || '');
   let turnover = 0;
+  let pnl = 0;
   for (const b of store.hkMarkSix.bets) {
-    if (String(b.userId) === uid) turnover += Number(b.total) || 0;
+    if (String(b.userId) !== uid) continue;
+    turnover += Number(b.total) || 0;
+    if (b.status === '已结算') {
+      pnl += (Number(b.payout) || 0) - (Number(b.total) || 0);
+    }
   }
   return {
     turnover: Number(turnover.toFixed(2)),
-    pnl: null,
+    pnl: Number(pnl.toFixed(2)),
     rebate: null,
   };
 }
 
 module.exports = {
-  HK6_KEYS,
   ensureHk6,
   getStatus,
   getHistory,
   maybeAdvanceDraw,
   placeBet,
   getUserRoomStats,
+  settleBetsForCompletedDraw,
 };

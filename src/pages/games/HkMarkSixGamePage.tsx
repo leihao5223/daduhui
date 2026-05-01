@@ -5,6 +5,7 @@ import { apiGet, apiPost } from '../../api/http';
 import { getToken } from '../../lib/auth';
 import '../../styles/hk-marksix-game.css';
 import { gamesContent } from '../../content/games';
+import { HkMarkSixComboPanel } from './HkMarkSixComboPanel';
 
 type Hk6Status = {
   success?: boolean;
@@ -186,6 +187,10 @@ const HkMarkSixGamePage: React.FC = () => {
     };
   }, [historyOpen]);
 
+  const addComboLine = useCallback((key: string) => {
+    setSelectedKeys((prev) => new Set(prev).add(key));
+  }, []);
+
   const toggleOption = useCallback((playTypeId: string, optionId: string) => {
     const k = lineKey(playTypeId, optionId);
     setSelectedKeys((prev) => {
@@ -318,30 +323,43 @@ const HkMarkSixGamePage: React.FC = () => {
           ))}
         </aside>
         <div className="hk6-options-pane">
-          {activeCategory?.playTypes.map((pt) => (
-            <section key={pt.id} className="hk6-play-section">
-              <header className="hk6-play-head">
-                <span>{pt.name}</span>
-              </header>
-              <div className="hk6-option-grid">
-                {pt.options.map((opt) => {
-                  const k = lineKey(pt.id, opt.id);
-                  const on = selectedKeys.has(k);
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      className={`hk6-option-cell ${on ? 'hk6-option-cell--on' : ''}`}
-                      onClick={() => toggleOption(pt.id, opt.id)}
-                    >
-                      <span className="hk6-option-label">{opt.label}</span>
-                      <span className="hk6-option-odds">{opt.odds}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+          {activeCategoryId === 'combo' ? (
+            <HkMarkSixComboPanel
+              onAddKey={addComboLine}
+              existingKeys={selectedKeys}
+              labels={{
+                mode: hk.comboMode,
+                add: hk.comboAdd,
+                clear: hk.comboClear,
+                pickMore: (n) => `${hk.comboPickPrefix} ${n} ${hk.comboPickUnit}`,
+              }}
+            />
+          ) : (
+            activeCategory?.playTypes.map((pt) => (
+              <section key={pt.id} className="hk6-play-section">
+                <header className="hk6-play-head">
+                  <span>{pt.name}</span>
+                </header>
+                <div className="hk6-option-grid">
+                  {pt.options.map((opt) => {
+                    const k = lineKey(pt.id, opt.id);
+                    const on = selectedKeys.has(k);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={`hk6-option-cell ${on ? 'hk6-option-cell--on' : ''}`}
+                        onClick={() => toggleOption(pt.id, opt.id)}
+                      >
+                        <span className="hk6-option-label">{opt.label}</span>
+                        <span className="hk6-option-odds">{opt.odds}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))
+          )}
         </div>
       </section>
 
