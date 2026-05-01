@@ -1,5 +1,6 @@
 /**
  * 外部开奖同步：marksix6 扩展接口含历史；单条接口为兜底；6g009 等需自建代理
+ * 玩家侧延后展示/派彩：在业务服务上设置 HK6_LAG_SEC（秒），相对源的 openTime（drawnAt）。
  */
 const DEFAULT_SYNC_URL = 'https://marksix6.net/api/lottery_api.php';
 /** 含 lottery_data[].history 的完整 JSON */
@@ -209,8 +210,15 @@ function mergeExtendedIntoStore(store, incomingChronological, saveStore, settleF
   const oldList = store.hkMarkSix.draws;
   const oldPeriods = new Set(oldList.map((d) => d.period));
   const merged = new Map();
+  const stamp = new Date().toISOString();
   for (const d of oldList) merged.set(d.period, { ...d });
-  for (const d of incomingChronological) merged.set(d.period, { ...d });
+  for (const d of incomingChronological) {
+    const prev = merged.get(d.period);
+    merged.set(d.period, {
+      ...d,
+      ingestedAt: d.ingestedAt || prev?.ingestedAt || stamp,
+    });
+  }
   let next = [...merged.keys()]
     .sort((a, b) => periodNum(a) - periodNum(b))
     .map((p) => merged.get(p));
@@ -290,6 +298,7 @@ async function tryIngestExternalDrawImpl(store, saveStore, settleFn) {
   }
 
   const { _source, ...cleanRow } = row;
+  if (!cleanRow.ingestedAt) cleanRow.ingestedAt = new Date().toISOString();
   const last = store.hkMarkSix.draws[store.hkMarkSix.draws.length - 1];
   if (last && drawEquals(last, cleanRow)) {
     if (!store.hkMarkSix.meta) store.hkMarkSix.meta = {};

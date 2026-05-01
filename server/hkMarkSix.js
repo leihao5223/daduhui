@@ -11,6 +11,67 @@ function maxDrawCap() {
   return Math.min(Math.max(n, 1), 500);
 }
 
+/** 相对官方开奖时间（或入库时间）再延后多少秒才对玩家展示、派彩；0 表示立即。 */
+function lagSec() {
+  const n = Number(process.env.HK6_LAG_SEC || 0);
+  return Math.min(Math.max(Math.floor(n), 0), 600);
+}
+
+/** 本期可对玩家「亮牌」的 Unix 毫秒时间；无官方开奖时间则立即展示 */
+function drawVisibleAtMs(draw) {
+  if (!draw) return 0;
+  const lagMs = lagSec() * 1000;
+  if (!lagMs) return 0;
+  if (draw.drawnAt) {
+    const t = new Date(draw.drawnAt).getTime();
+    if (!Number.isNaN(t)) return t + lagMs;
+  }
+  return 0;
+}
+
+function isDrawVisibleNow(draw) {
+  if (!draw) return false;
+  if (!lagSec()) return true;
+  const due = drawVisibleAtMs(draw);
+  if (!due) return true;
+  return Date.now() >= due;
+}
+
+function getLastVisibleDraw(draws) {
+  if (!Array.isArray(draws) || !draws.length) return null;
+  for (let i = draws.length - 1; i >= 0; i--) {
+    if (isDrawVisibleNow(draws[i])) return draws[i];
+  }
+  return null;
+}
+
+function enqueuePendingSettlement(store, drawRow, saveStore) {
+  ensureHk6(store);
+  if (!store.hkMarkSix.pendingSettlements) store.hkMarkSix.pendingSettlements = [];
+  const dueAt = drawVisibleAtMs(drawRow);
+  const period = drawRow.period;
+  const q = store.hkMarkSix.pendingSettlements.filter((x) => x.period !== period);
+  q.push({ period, drawRow, dueAt });
+  store.hkMarkSix.pendingSettlements = q;
+  saveStore();
+}
+
+function flushPendingSettlements(store, saveStore) {
+  ensureHk6(store);
+  const q = store.hkMarkSix.pendingSettlements;
+  if (!q || !q.length) return;
+  const now = Date.now();
+  const stay = [];
+  for (const item of q) {
+    if (now >= item.dueAt) settleBetsForCompletedDrawNow(store, item.drawRow, saveStore);
+    else stay.push(item);
+  }
+  if (stay.length !== q.length) {
+    store.hkMarkSix.pendingSettlements = stay;
+    saveStore();
+  }
+}
+
 function ensureHk6(store) {
   if (!store.hkMarkSix || typeof store.hkMarkSix !== 'object') {
     store.hkMarkSix = { periodBase: 2026000, draws: [], bets: [] };
@@ -25,6 +86,7 @@ function ensureHk6(store) {
       balls: ['06', '12', '18', '22', '31', '44'],
       special: '02',
       drawnAt: new Date(Date.now() - 3600000).toISOString(),
+      ingestedAt: new Date(Date.now() - 3600000).toISOString(),
     });
   }
 }
@@ -42,7 +104,7 @@ function fakeBallsFromSeed(seed) {
   return { balls: arr, special: String(spec).padStart(2, '0') };
 }
 
-function settleBetsForCompletedDraw(store, drawRow, saveStore) {
+function settleBetsForCompletedDrawNow(store, drawRow, saveStore) {
   ensureHk6(store);
   const period = drawRow.period;
   const pending = store.hkMarkSix.bets.filter((b) => b.period === period && b.status === '已接单');
@@ -74,18 +136,31 @@ function settleBetsForCompletedDraw(store, drawRow, saveStore) {
   if (pending.length) saveStore();
 }
 
+function settleBetsForCompletedDraw(store, drawRow, saveStore) {
+  ensureHk6(store);
+  const period = drawRow.period;
+  const hasPending = store.hkMarkSix.bets.some((b) => b.period === period && b.status === '已接单');
+  const due = drawVisibleAtMs(drawRow);
+  if (due > 0 && hasPending && Date.now() < due) {
+    enqueuePendingSettlement(store, drawRow, saveStore);
+    return;
+  }
+  settleBetsForCompletedDrawNow(store, drawRow, saveStore);
+}
+
 function getStatus(store) {
   ensureHk6(store);
   const cycle = 180;
   const now = Math.floor(Date.now() / 1000);
   const secInCycle = now % cycle;
   const countdownSec = cycle - secInCycle;
-  const last = store.hkMarkSix.draws[store.hkMarkSix.draws.length - 1];
-  if (!last) {
+  const trueLast = store.hkMarkSix.draws[store.hkMarkSix.draws.length - 1];
+  if (!trueLast) {
     const meta = store.hkMarkSix.meta || {};
     return {
       success: true,
       drawsCount: store.hkMarkSix.draws.length,
+      revealLagSec: lagSec(),
       currentPeriod: null,
       countdownSec,
       lastDraw: null,
@@ -98,21 +173,25 @@ function getStatus(store) {
       },
     };
   }
-  const m = /^HK(\d+)$/.exec(String(last.period || ''));
+  const m = /^HK(\d+)$/.exec(String(trueLast.period || ''));
   const n = m ? Number(m[1]) : store.hkMarkSix.periodBase;
   const nextPeriod = `HK${n + 1}`;
   const meta = store.hkMarkSix.meta || {};
+  const visible = getLastVisibleDraw(store.hkMarkSix.draws);
   return {
     success: true,
     drawsCount: store.hkMarkSix.draws.length,
+    revealLagSec: lagSec(),
     currentPeriod: nextPeriod,
     countdownSec,
-    lastDraw: {
-      period: last.period,
-      balls: last.balls,
-      special: last.special,
-      drawnAt: last.drawnAt,
-    },
+    lastDraw: visible
+      ? {
+          period: visible.period,
+          balls: visible.balls,
+          special: visible.special,
+          drawnAt: visible.drawnAt,
+        }
+      : null,
     sync: {
       url: process.env.HK6_SYNC_URL || hkMarkSixSync.DEFAULT_SYNC_URL,
       enabled: process.env.HK6_EXTERNAL_SYNC !== '0',
@@ -127,7 +206,8 @@ function getHistory(store, limit) {
   ensureHk6(store);
   const cap = maxDrawCap();
   const lim = Math.min(Math.max(Number(limit) || cap, 1), cap);
-  const list = [...store.hkMarkSix.draws].reverse().slice(0, lim);
+  const visible = store.hkMarkSix.draws.filter((d) => isDrawVisibleNow(d));
+  const list = [...visible].reverse().slice(0, lim);
   return {
     success: true,
     list: list.map((d) => ({
@@ -157,6 +237,7 @@ function maybeAdvanceFake(store, saveStore) {
       balls,
       special,
       drawnAt: new Date().toISOString(),
+      ingestedAt: new Date().toISOString(),
     };
     store.hkMarkSix.draws.push(drawRow);
     const cap = maxDrawCap();
@@ -168,6 +249,7 @@ function maybeAdvanceFake(store, saveStore) {
 
 async function refreshDraws(store, saveStore) {
   ensureHk6(store);
+  flushPendingSettlements(store, saveStore);
   if (process.env.HK6_EXTERNAL_SYNC === '0') {
     maybeAdvanceFake(store, saveStore);
     return;
@@ -198,6 +280,7 @@ function maybeAdvanceDraw(store, saveStore) {
 
 async function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
   await refreshDraws(store, saveStore);
+  flushPendingSettlements(store, saveStore);
   const periodNow = getStatus(store).currentPeriod;
   if (!periodNow) {
     return { ok: false, status: 503, body: { success: false, message: '开奖数据加载中，请稍后再试' } };
@@ -296,4 +379,5 @@ module.exports = {
   placeBet,
   getUserRoomStats,
   settleBetsForCompletedDraw,
+  flushPendingSettlements,
 };
