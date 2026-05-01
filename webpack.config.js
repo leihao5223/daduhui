@@ -293,7 +293,8 @@ module.exports = (env = {}, argv) => {
     output: {
       path: path.resolve(__dirname, 'dist'),
       filename: 'bundle.js',
-      publicPath: 'auto'
+      // 生产环境必须用站点根路径，否则在 /game/xxx 等子路径刷新时相对 bundle.js 会跑到 /game/bundle.js 导致白屏
+      publicPath: isProd ? '/' : 'auto',
     },
     module: {
       rules: [
