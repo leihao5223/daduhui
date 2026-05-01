@@ -6,6 +6,25 @@ const rules = require('./hkMarkSixRules');
 const finance = require('./finance');
 const hkMarkSixSync = require('./hkMarkSixSync');
 
+// #region agent log
+function dbgHk6(hypothesisId, location, message, data) {
+  if (typeof fetch !== 'function') return;
+  fetch('http://127.0.0.1:7583/ingest/3df9935a-40e5-45e4-9007-bbd3b69c0c3b', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '6a3aec' },
+    body: JSON.stringify({
+      sessionId: '6a3aec',
+      runId: 'pre-fix',
+      hypothesisId,
+      location,
+      message,
+      data: data || {},
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
+// #endregion
+
 function maxDrawCap() {
   const n = Number(process.env.HK6_MAX_DRAWS || 200);
   return Math.min(Math.max(n, 1), 500);
@@ -47,13 +66,43 @@ function lagStrictHidden() {
 }
 
 function getLastVisibleDraw(draws) {
-  if (!Array.isArray(draws) || !draws.length) return null;
+  if (!Array.isArray(draws) || !draws.length) {
+    // #region agent log
+    dbgHk6('A', 'hkMarkSix.js:getLastVisibleDraw', 'empty draws', { drawsLen: 0 });
+    // #endregion
+    return null;
+  }
   for (let i = draws.length - 1; i >= 0; i--) {
-    if (isDrawVisibleNow(draws[i])) return draws[i];
+    if (isDrawVisibleNow(draws[i])) {
+      // #region agent log
+      dbgHk6('A', 'hkMarkSix.js:getLastVisibleDraw', 'picked visible row', {
+        index: i,
+        period: draws[i].period,
+        lagSec: lagSec(),
+        lagStrict: lagStrictHidden(),
+      });
+      // #endregion
+      return draws[i];
+    }
   }
   if (lagSec() > 0 && !lagStrictHidden()) {
-    return draws[draws.length - 1];
+    const tail = draws[draws.length - 1];
+    // #region agent log
+    dbgHk6('A', 'hkMarkSix.js:getLastVisibleDraw', 'fallback non-strict tail', { period: tail?.period });
+    // #endregion
+    return tail;
   }
+  const last = draws[draws.length - 1];
+  // #region agent log
+  dbgHk6('A', 'hkMarkSix.js:getLastVisibleDraw', 'all rows hidden strict', {
+    period: last?.period,
+    lagSec: lagSec(),
+    drawnAt: last?.drawnAt,
+    dueMs: drawVisibleAtMs(last),
+    nowMs: Date.now(),
+    lastVisibleNow: last ? isDrawVisibleNow(last) : null,
+  });
+  // #endregion
   return null;
 }
 
@@ -116,7 +165,18 @@ function augmentDrawForClient(d) {
     if (derived) out.derived = derived;
     return out;
   }
-  if (!d || d.period == null || !Array.isArray(d.balls) || d.balls.length < 6 || d.special == null) return null;
+  if (!d || d.period == null || !Array.isArray(d.balls) || d.balls.length < 6 || d.special == null) {
+    // #region agent log
+    dbgHk6('B', 'hkMarkSix.js:augmentDrawForClient', 'fallback gate failed', {
+      hasRow: !!d,
+      period: d?.period,
+      ballsIsArray: Array.isArray(d?.balls),
+      ballsLen: Array.isArray(d?.balls) ? d.balls.length : null,
+      specialType: d?.special == null ? 'nullish' : typeof d.special,
+    });
+    // #endregion
+    return null;
+  }
   const out = {
     period: d.period,
     balls: d.balls.slice(0, 6).map((x) => String(x).padStart(2, '0')),
@@ -268,6 +328,12 @@ function getStatus(store) {
   const countdownSec = cycle - secInCycle;
   const trueLast = store.hkMarkSix.draws[store.hkMarkSix.draws.length - 1];
   if (!trueLast) {
+    // #region agent log
+    dbgHk6('D', 'hkMarkSix.js:getStatus', 'no trueLast in store', {
+      drawsCount: store.hkMarkSix.draws.length,
+      hk6ExternalSync: process.env.HK6_EXTERNAL_SYNC !== '0',
+    });
+    // #endregion
     const meta = store.hkMarkSix.meta || {};
     return {
       success: true,
@@ -290,13 +356,26 @@ function getStatus(store) {
   const nextPeriod = `HK${n + 1}`;
   const meta = store.hkMarkSix.meta || {};
   const visible = getLastVisibleDraw(store.hkMarkSix.draws);
+  const lastDrawPayload = augmentDrawForClient(visible);
+  // #region agent log
+  dbgHk6('B', 'hkMarkSix.js:getStatus', 'lastDraw pipeline', {
+    drawsCount: store.hkMarkSix.draws.length,
+    trueLastPeriod: trueLast.period,
+    visibleIsNull: visible == null,
+    visiblePeriod: visible?.period,
+    lastDrawIsNull: lastDrawPayload == null,
+    lastBallsLen: lastDrawPayload?.balls?.length,
+    lastBallsIsArray: Array.isArray(lastDrawPayload?.balls),
+    hasDerived: !!lastDrawPayload?.derived,
+  });
+  // #endregion
   return {
     success: true,
     drawsCount: store.hkMarkSix.draws.length,
     revealLagSec: lagSec(),
     currentPeriod: nextPeriod,
     countdownSec,
-    lastDraw: augmentDrawForClient(visible),
+    lastDraw: lastDrawPayload,
     sync: {
       url: process.env.HK6_SYNC_URL || hkMarkSixSync.DEFAULT_SYNC_URL,
       enabled: process.env.HK6_EXTERNAL_SYNC !== '0',

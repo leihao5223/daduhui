@@ -639,6 +639,23 @@ const server = http.createServer(async (req, res) => {
 
     /** ----- GET /api/game/hk-marksix/status ----- */
     if (req.method === 'GET' && p === '/api/game/hk-marksix/status') {
+      // #region agent log
+      if (typeof fetch === 'function') {
+        void fetch('http://127.0.0.1:7583/ingest/3df9935a-40e5-45e4-9007-bbd3b69c0c3b', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '6a3aec' },
+          body: JSON.stringify({
+            sessionId: '6a3aec',
+            runId: 'pre-fix',
+            hypothesisId: 'E',
+            location: 'index.js:hk-marksix/status',
+            message: 'handler entered',
+            data: {},
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+      }
+      // #endregion
       await hkMarkSix.touchHk6Sync(store, saveStore);
       hkMarkSix.flushPendingSettlements(store, saveStore);
       saveStore();
