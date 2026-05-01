@@ -10,6 +10,7 @@ import { HkMarkSixQuickBetPanel, type QuickBetLabels } from './HkMarkSixQuickBet
 
 type Hk6Status = {
   success?: boolean;
+  drawsCount?: number;
   currentPeriod?: string;
   countdownSec?: number;
   sync?: {
@@ -107,6 +108,7 @@ const HkMarkSixGamePage: React.FC = () => {
   const [unitAmount, setUnitAmount] = useState(10);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [status, setStatus] = useState<Hk6Status | null>(null);
+  const [statusReqFailed, setStatusReqFailed] = useState(false);
   const [historyRows, setHistoryRows] = useState<Hk6HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [betting, setBetting] = useState(false);
@@ -161,9 +163,15 @@ const HkMarkSixGamePage: React.FC = () => {
     async function tick() {
       try {
         const s = await apiGet<Hk6Status>('/api/game/hk-marksix/status', { timeout: 45000 });
-        if (!cancelled) setStatus(s);
+        if (!cancelled) {
+          setStatus(s);
+          setStatusReqFailed(false);
+        }
       } catch {
-        if (!cancelled) setStatus(null);
+        if (!cancelled) {
+          setStatus(null);
+          setStatusReqFailed(true);
+        }
       }
     }
     void tick();
@@ -335,9 +343,13 @@ const HkMarkSixGamePage: React.FC = () => {
             <p className="hk6-sub">
               {status?.currentPeriod
                 ? hk.subtitle(status.currentPeriod, status.countdownSec ?? '—')
-                : status?.sync?.enabled && status.sync?.err
-                  ? hk.syncFailed(status.sync.err)
-                  : hk.subtitleLoading}
+                : statusReqFailed
+                  ? hk.statusApiError
+                  : status?.sync?.enabled && status.sync?.err
+                    ? hk.syncFailed(status.sync.err)
+                    : status?.drawsCount === 0 && status?.sync?.enabled && !status?.sync?.err
+                      ? hk.syncStuckHint
+                      : hk.subtitleLoading}
               {status?.sync?.enabled && status.sync.source ? (
                 <span className="hk6-sync-hint">
                   {' '}

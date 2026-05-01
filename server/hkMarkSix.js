@@ -85,6 +85,7 @@ function getStatus(store) {
     const meta = store.hkMarkSix.meta || {};
     return {
       success: true,
+      drawsCount: store.hkMarkSix.draws.length,
       currentPeriod: null,
       countdownSec,
       lastDraw: null,
@@ -103,6 +104,7 @@ function getStatus(store) {
   const meta = store.hkMarkSix.meta || {};
   return {
     success: true,
+    drawsCount: store.hkMarkSix.draws.length,
     currentPeriod: nextPeriod,
     countdownSec,
     lastDraw: {

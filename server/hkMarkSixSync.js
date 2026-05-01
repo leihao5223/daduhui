@@ -4,6 +4,8 @@
 const DEFAULT_SYNC_URL = 'https://marksix6.net/api/lottery_api.php';
 /** 含 lottery_data[].history 的完整 JSON */
 const DEFAULT_EXTENDED_SYNC_URL = 'https://marksix6.net/index.php?api=1';
+const EXTENDED_MIRROR_URLS = ['https://api.marksix6.net/index.php?api=1'];
+const QUICK_MIRROR_URLS = ['https://api.marksix6.net/api/lottery_api.php'];
 
 let lastExternalAttemptMs = 0;
 const EXTERNAL_MIN_INTERVAL_MS = Number(process.env.HK6_SYNC_MIN_MS || 28000);
@@ -27,11 +29,26 @@ function periodNum(p) {
   return m ? Number(m[1]) : 0;
 }
 
-function rowFromExpectNumbers(expect, numbers, openTime) {
+function numbersFromOpenCode(openCode) {
+  const sly = String(openCode || '')
+    .trim()
+    .split(/[,，]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (sly.length < 7) return null;
+  return sly;
+}
+
+function rowFromExpectNumbers(expect, numbers, openTime, openCode) {
   const expectStr = String(expect || '').trim();
   if (!expectStr) return null;
-  if (!Array.isArray(numbers) || numbers.length < 7) return null;
-  const raw = numbers.map((x) => pad2(x));
+  let nums = Array.isArray(numbers) ? numbers : null;
+  if (!nums || nums.length < 7) {
+    const oc = numbersFromOpenCode(openCode);
+    if (oc) nums = oc;
+  }
+  if (!nums || nums.length < 7) return null;
+  const raw = nums.map((x) => pad2(x));
   if (raw.some((x) => !x)) return null;
   const balls = raw.slice(0, 6);
   const special = raw[6];
@@ -44,11 +61,17 @@ function rowFromExpectNumbers(expect, numbers, openTime) {
   return { period: `HK${expectStr}`, balls, special, drawnAt };
 }
 
+/** lottery_data 里单条香港彩 */
+function rowFromExtendedLotteryRow(row) {
+  if (!row) return null;
+  return rowFromExpectNumbers(row.expect, row.numbers, row.openTime, row.openCode);
+}
+
 /** marksix6.net：hk.numbers 为 7 个两位串，前 6 正码顺序，第 7 特码 */
 function normalizeFromMarksix6(json) {
   const hk = json && json.hk;
   if (!hk) return null;
-  return rowFromExpectNumbers(hk.expect, hk.numbers, hk.openTime);
+  return rowFromExpectNumbers(hk.expect, hk.numbers, hk.openTime, hk.openCode);
 }
 
 /** 历史行：2026045 期：21,42,46,36,04,16,09 */
@@ -69,14 +92,14 @@ function parseHistoryLine(line) {
 }
 
 function parseMarksix6ExtendedPayload(json) {
-  const hk = (json && json.lottery_data) || [];
-  const row = hk.find((x) => x && x.code === 'hk');
+  const list = (json && json.lottery_data) || [];
+  const row = list.find((x) => x && String(x.code || '').toLowerCase() === 'hk');
   if (!row) return null;
   const byPeriod = new Map();
   const add = (r) => {
     if (r && r.period) byPeriod.set(r.period, r);
   };
-  add(rowFromExpectNumbers(row.expect, row.numbers, row.openTime));
+  add(rowFromExtendedLotteryRow(row));
   for (const line of row.history || []) {
     const h = parseHistoryLine(line);
     if (h) add(h);
@@ -106,6 +129,17 @@ function normalizeRaw(json) {
   };
 }
 
+function parseJsonFromBody(raw) {
+  if (raw == null) return null;
+  const t = String(raw).replace(/^\uFEFF/, '').trim();
+  if (!t || t.startsWith('<')) return null;
+  try {
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
+}
+
 async function fetchJsonUrl(url, timeoutMs = 12000) {
   const ac = new AbortController();
   const t = setTimeout(() => ac.abort(), timeoutMs);
@@ -118,7 +152,8 @@ async function fetchJsonUrl(url, timeoutMs = 12000) {
       },
     });
     if (!res.ok) return null;
-    return await res.json();
+    const text = await res.text();
+    return parseJsonFromBody(text);
   } catch {
     return null;
   } finally {
@@ -130,6 +165,30 @@ function extendedSyncUrl() {
   const env = process.env.HK6_EXTENDED_SYNC_URL;
   if (env === '') return '';
   return (env || DEFAULT_EXTENDED_SYNC_URL).trim();
+}
+
+/** 仅在「未强制自定义扩展地址」时追加镜像，避免拉到别家数据结构 */
+function extendedFetchUrls() {
+  const primary = extendedSyncUrl();
+  if (!primary) return [];
+  const urls = [primary];
+  const locked = Boolean(process.env.HK6_EXTENDED_SYNC_URL && process.env.HK6_EXTENDED_SYNC_URL.trim());
+  if (!locked) {
+    for (const m of EXTENDED_MIRROR_URLS) {
+      if (!urls.includes(m)) urls.push(m);
+    }
+  }
+  return urls;
+}
+
+function quickFetchUrls() {
+  const custom = (process.env.HK6_SYNC_URL || '').trim();
+  if (custom) return [custom];
+  const urls = [DEFAULT_SYNC_URL];
+  for (const m of QUICK_MIRROR_URLS) {
+    if (!urls.includes(m)) urls.push(m);
+  }
+  return urls;
 }
 
 function drawEquals(a, b) {
@@ -180,14 +239,20 @@ function mergeExtendedIntoStore(store, incomingChronological, saveStore, settleF
 }
 
 async function fetchExternalDrawRow() {
-  const url = (process.env.HK6_SYNC_URL || DEFAULT_SYNC_URL).trim();
-  if (!url) return null;
-  const json = await fetchJsonUrl(url);
-  if (!json) return null;
-  if (process.env.HK6_SYNC_MODE === 'raw') return normalizeRaw(json);
-  const row = normalizeFromMarksix6(json);
-  if (row) return row;
-  return normalizeRaw(json);
+  for (const url of quickFetchUrls()) {
+    const json = await fetchJsonUrl(url);
+    if (!json) continue;
+    if (process.env.HK6_SYNC_MODE === 'raw') {
+      const r = normalizeRaw(json);
+      if (r) return r;
+      continue;
+    }
+    const row = normalizeFromMarksix6(json);
+    if (row) return row;
+    const raw = normalizeRaw(json);
+    if (raw) return raw;
+  }
+  return null;
 }
 
 /**
@@ -206,8 +271,7 @@ async function tryIngestExternalDrawImpl(store, saveStore, settleFn) {
   lastExternalAttemptMs = now;
 
   if (process.env.HK6_SYNC_MODE !== 'raw') {
-    const extUrl = extendedSyncUrl();
-    if (extUrl) {
+    for (const extUrl of extendedFetchUrls()) {
       const extJson = await fetchJsonUrl(extUrl, 15000);
       const incoming = extJson && parseMarksix6ExtendedPayload(extJson);
       if (incoming && incoming.length) {

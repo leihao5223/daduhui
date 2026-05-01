@@ -9,10 +9,15 @@ export const gamesContent = {
   hk6: {
     title: '香港六合彩',
     subtitleLoading: '正在同步状态…',
+    statusApiError: '无法连接开奖服务（请检查 /api 是否反代到 Node 后端，或网络是否异常）',
+    syncStuckHint:
+      '暂无开奖记录：服务器可能无法访问 marksix6，请在主机上配置可出网的代理，或设置 HK6_SYNC_FALLBACK_FAKE=1 启用演示开奖',
     syncFailed: (code: string) =>
       code === 'fetch_failed'
-        ? '同步失败：服务器连不上开奖源（请检查出站网络或代理）'
-        : `同步失败（${code}）`,
+        ? '同步失败：服务器连不上开奖源（请检查出站网络、防火墙或代理）'
+        : code === 'period_not_newer'
+          ? '同步异常：本地开奖期号与源不一致，可清空 data/store.json 中 hkMarkSix.draws 后重启'
+          : `同步失败（${code}）`,
     subtitle: (period: string, sec: number | string) =>
       `投注期 ${period} · 演示封盘倒计时 ${sec}s`,
     syncSource: '同步',
