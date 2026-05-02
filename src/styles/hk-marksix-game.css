@@ -1,8 +1,8 @@
 /* 香港六合彩全屏下注页 — 五段式布局，下注区 min-height:0 内滚动 */
 
 .hk6-game {
-  /* 为底部固定「汇总 + 下注」栏预留空间，避免整页缩放后底部露白 */
-  --hk6-dock-reserve: clamp(8.75rem, 32dvh, 13.5rem);
+  /* 与固定底栏实际高度对齐，避免下注区与「下注总额」条之间大块留白 */
+  --hk6-dock-reserve: calc(8.1rem + env(safe-area-inset-bottom, 0px));
   min-height: 100dvh;
   min-height: 100svh;
   height: 100dvh;
@@ -26,7 +26,7 @@
   bottom: 0;
   z-index: 50;
   background: rgba(10, 12, 18, 0.98);
-  border-top: 1px solid rgba(197, 160, 89, 0.18);
+  border-top: 1px solid rgba(197, 160, 89, 0.28);
   box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.35);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -257,6 +257,7 @@
 .hk6-options-pane {
   flex: 1 1 80%;
   width: 80%;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0.45rem 0.5rem 0.6rem;
@@ -271,11 +272,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.35rem;
   padding: 0.25rem 0.15rem 0.35rem;
   font-size: 0.72rem;
   font-weight: 600;
   color: rgba(245, 243, 236, 0.55);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hk6-play-overflow-hint {
+  margin: 0.15rem 0 0.25rem;
+  padding: 0.35rem 0.2rem;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: rgba(197, 160, 89, 0.72);
+  border-top: 1px dashed rgba(197, 160, 89, 0.22);
+}
+
+.hk6-play-head-cat {
+  flex-shrink: 0;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: rgba(197, 160, 89, 0.85);
+  max-width: 42%;
+  text-align: right;
+  line-height: 1.2;
 }
 
 .hk6-option-grid {
@@ -724,7 +745,7 @@
 }
 
 .hk6-quick-grid {
-  max-height: 36vh;
+  max-height: min(52vh, 22rem);
 }
 
 .hk6-num--bank {

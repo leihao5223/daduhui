@@ -48,6 +48,8 @@ export const gamesContent = {
     ariaBack: '返回',
     row2Aria: '上期开奖',
     betPlateAria: '下注盘',
+    /** 主势盘等栏目较矮时，在下方延续展示后续栏目中的若干玩法（仍为本期有效注项） */
+    overflowPlaysHint: '以下为延续展示的可用玩法（同属本期注单）',
     summaryAria: '投注汇总',
     comboMode: '复式玩法',
     comboAdd: '加入注单',

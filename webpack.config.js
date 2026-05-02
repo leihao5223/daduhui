@@ -44,6 +44,11 @@ module.exports = (env = {}, argv) => {
                   displayId8: derivedDisplayId8FromSeed(userId),
                   balance: 8888.88,
                   ledger: [],
+                  mockBetOrders: [],
+                  security: [
+                    { questionId: 'q1', answer: 'mock' },
+                    { questionId: 'q2', answer: 'mock2' },
+                  ],
                 });
               }
               return mockSessions.get(token);
@@ -154,15 +159,102 @@ module.exports = (env = {}, argv) => {
                   return;
                 }
                 const q = new URLSearchParams((req.url || '').split('?')[1] || '');
-                const lim = Math.min(Math.max(Number(q.get('limit')) || 100, 1), 500);
-                const list = [...s.ledger].slice(-lim).reverse().map((r) => ({
+                const lim = Math.min(Math.max(Number(q.get('limit')) || 200, 1), 500);
+                const typesRaw = q.get('types');
+                const types = typesRaw ? typesRaw.split(',').map((x) => x.trim()).filter(Boolean) : null;
+                let rows = [...s.ledger];
+                if (types && types.length) {
+                  rows = rows.filter((r) => types.includes(String(r.ledgerType || '')));
+                }
+                rows.reverse();
+                rows = rows.slice(0, lim);
+                const list = rows.map((r) => ({
                   id: r.id,
-                  time: r.time,
+                  time: r.time || new Date(r.createdAt || Date.now()).toLocaleString('zh-CN'),
                   type: r.type,
                   amount: r.amount,
                   status: r.status,
+                  ledgerType: r.ledgerType || '',
                 }));
                 sendJson(res, 200, { success: true, list });
+                return;
+              }
+
+              if (req.method === 'GET' && pathOnly === '/api/me/bet-orders') {
+                const s = getMockSession(getBearer(req));
+                if (!s) {
+                  sendJson(res, 401, { success: false, message: '请先登录' });
+                  return;
+                }
+                if (!Array.isArray(s.mockBetOrders)) s.mockBetOrders = [];
+                const list =
+                  s.mockBetOrders.length > 0
+                    ? [...s.mockBetOrders].reverse()
+                    : [
+                        {
+                          id: 'mock_bo_seed',
+                          gameLabel: '香港六合彩',
+                          period: 'HK2026001',
+                          amount: 10,
+                          status: '已接单',
+                          payout: null,
+                          time: new Date().toLocaleString('zh-CN'),
+                          summary: 'hk6:tm:01×10',
+                        },
+                      ];
+                sendJson(res, 200, { success: true, list });
+                return;
+              }
+
+              if (req.method === 'GET' && pathOnly === '/api/me/security-for-password') {
+                const s = getMockSession(getBearer(req));
+                if (!s) {
+                  sendJson(res, 401, { success: false, message: '请先登录' });
+                  return;
+                }
+                const sec = Array.isArray(s.security) ? s.security : [];
+                const questions = sec
+                  .map((row) => {
+                    const id = String(row.questionId || '');
+                    const map = {
+                      q1: '你的小学名字是什么？',
+                      q2: '你最喜欢的颜色是什么？',
+                      q3: '你的出生地是哪里？',
+                      q4: '你最好的朋友名字是什么？',
+                    };
+                    const text = map[id];
+                    return id && text ? { id, text } : null;
+                  })
+                  .filter(Boolean);
+                if (!questions.length) {
+                  sendJson(res, 200, { success: false, message: '当前账号未设置密保' });
+                  return;
+                }
+                sendJson(res, 200, { success: true, questions });
+                return;
+              }
+
+              if (req.method === 'POST' && pathOnly === '/api/me/change-password') {
+                void readJsonBody(req).then((body) => {
+                  const s = getMockSession(getBearer(req));
+                  if (!s) {
+                    sendJson(res, 401, { success: false, message: '请先登录' });
+                    return;
+                  }
+                  const qid = String(body.questionId || '').trim();
+                  const ans = String(body.answer || '').trim().toLowerCase();
+                  const sec = Array.isArray(s.security) ? s.security : [];
+                  const ok = sec.some(
+                    (row) =>
+                      String(row.questionId || '').trim() === qid &&
+                      String(row.answer || '').trim().toLowerCase() === ans,
+                  );
+                  if (!ok) {
+                    sendJson(res, 200, { success: false, message: '密保答案不正确' });
+                    return;
+                  }
+                  sendJson(res, 200, { success: true, message: '登录密码已更新（mock 模式未持久化）' });
+                });
                 return;
               }
 
@@ -182,10 +274,12 @@ module.exports = (env = {}, argv) => {
                   const id = `tx_mock_${Date.now()}`;
                   s.ledger.push({
                     id,
+                    createdAt: Date.now(),
                     time: new Date().toLocaleString('zh-CN'),
                     type: '在线充值',
                     amount: `+${amount.toFixed(2)}`,
                     status: '成功',
+                    ledgerType: 'deposit',
                   });
                   sendJson(res, 200, {
                     success: true,
@@ -221,10 +315,12 @@ module.exports = (env = {}, argv) => {
                   s.balance = Number((s.balance - amount).toFixed(2));
                   s.ledger.push({
                     id: `tx_mock_w_${Date.now()}`,
+                    createdAt: Date.now(),
                     time: new Date().toLocaleString('zh-CN'),
                     type: '提现申请',
                     amount: `-${amount.toFixed(2)}`,
                     status: '处理中',
+                    ledgerType: 'withdraw',
                   });
                   sendJson(res, 200, { success: true, message: '提现申请已提交' });
                 });
@@ -286,17 +382,32 @@ module.exports = (env = {}, argv) => {
                     return;
                   }
                   s.balance = Number((s.balance - total).toFixed(2));
+                  const betId = `hk6_mock_${Date.now()}`;
+                  const nowTs = Date.now();
                   s.ledger.push({
-                    id: `tx_mock_hk6_${Date.now()}`,
-                    time: new Date().toLocaleString('zh-CN'),
+                    id: `tx_mock_hk6_${nowTs}`,
+                    createdAt: nowTs,
+                    time: new Date(nowTs).toLocaleString('zh-CN'),
                     type: '香港六合彩-下注',
                     amount: `-${total.toFixed(2)}`,
                     status: '成功',
+                    ledgerType: 'bet',
+                  });
+                  if (!Array.isArray(s.mockBetOrders)) s.mockBetOrders = [];
+                  s.mockBetOrders.push({
+                    id: betId,
+                    gameLabel: '香港六合彩',
+                    period: 'HK2026001',
+                    amount: total,
+                    status: '已接单',
+                    payout: null,
+                    time: new Date(nowTs).toLocaleString('zh-CN'),
+                    summary: `hk6:${lines.length}注×${total.toFixed(2)}`,
                   });
                   sendJson(res, 200, {
                     success: true,
                     message: '下注成功',
-                    betId: `hk6_mock_${Date.now()}`,
+                    betId,
                     period: 'HK2026001',
                     total,
                   });

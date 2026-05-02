@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { hkMarkSixPlayCatalog, lineKey } from '../../games/hkMarkSix/playCatalog';
+import { hkMarkSixPlayCatalog, lineKey, type MarkSixPlayType } from '../../games/hkMarkSix/playCatalog';
 import { apiGet, apiPost } from '../../api/http';
 import { getToken } from '../../lib/auth';
 import '../../styles/hk-marksix-game.css';
@@ -133,6 +133,27 @@ function ballTone(num: string): 'r' | 'b' | 'g' {
 const QUICK_STAKES = [10, 20, 50, 100, 200];
 const hk = gamesContent.hk6;
 
+/** 当前侧栏分类下方，按目录顺序多展示若干后续栏目的玩法块（填满可视区、减少空白） */
+const HK6_OVERFLOW_PLAY_SECTIONS = 6;
+
+function overflowPlaySectionsAfterActive(
+  activeCategoryId: string,
+): Array<{ categoryLabel: string; playType: MarkSixPlayType }> {
+  if (activeCategoryId === 'combo') return [];
+  const idx = hkMarkSixPlayCatalog.findIndex((c) => c.id === activeCategoryId);
+  if (idx < 0) return [];
+  const out: Array<{ categoryLabel: string; playType: MarkSixPlayType }> = [];
+  for (let i = idx + 1; i < hkMarkSixPlayCatalog.length; i++) {
+    const cat = hkMarkSixPlayCatalog[i];
+    if (cat.id === 'combo') continue;
+    for (const pt of cat.playTypes) {
+      if (out.length >= HK6_OVERFLOW_PLAY_SECTIONS) return out;
+      out.push({ categoryLabel: cat.name, playType: pt });
+    }
+  }
+  return out;
+}
+
 const HkMarkSixGamePage: React.FC = () => {
   const navigate = useNavigate();
   const [activeCategoryId, setActiveCategoryId] = useState(hkMarkSixPlayCatalog[0]?.id ?? '');
@@ -153,6 +174,8 @@ const HkMarkSixGamePage: React.FC = () => {
     () => hkMarkSixPlayCatalog.find((c) => c.id === activeCategoryId),
     [activeCategoryId],
   );
+
+  const overflowSections = useMemo(() => overflowPlaySectionsAfterActive(activeCategoryId), [activeCategoryId]);
 
   const refreshBalance = useCallback(async () => {
     if (!getToken()) {
@@ -517,30 +540,62 @@ const HkMarkSixGamePage: React.FC = () => {
               )}
             </>
           ) : (
-            activeCategory?.playTypes.map((pt) => (
-              <section key={pt.id} className="hk6-play-section">
-                <header className="hk6-play-head">
-                  <span>{pt.name}</span>
-                </header>
-                <div className="hk6-option-grid">
-                  {pt.options.map((opt) => {
-                    const k = lineKey(pt.id, opt.id);
-                    const on = selectedKeys.has(k);
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        className={`hk6-option-cell ${on ? 'hk6-option-cell--on' : ''}`}
-                        onClick={() => toggleOption(pt.id, opt.id)}
-                      >
-                        <span className="hk6-option-label">{opt.label}</span>
-                        <span className="hk6-option-odds">{opt.odds}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            ))
+            <>
+              {activeCategory?.playTypes.map((pt) => (
+                <section key={pt.id} className="hk6-play-section">
+                  <header className="hk6-play-head">
+                    <span>{pt.name}</span>
+                  </header>
+                  <div className="hk6-option-grid">
+                    {pt.options.map((opt) => {
+                      const k = lineKey(pt.id, opt.id);
+                      const on = selectedKeys.has(k);
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          className={`hk6-option-cell ${on ? 'hk6-option-cell--on' : ''}`}
+                          onClick={() => toggleOption(pt.id, opt.id)}
+                        >
+                          <span className="hk6-option-label">{opt.label}</span>
+                          <span className="hk6-option-odds">{opt.odds}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+              {overflowSections.length > 0 ? (
+                <>
+                  <p className="hk6-play-overflow-hint">{hk.overflowPlaysHint}</p>
+                  {overflowSections.map(({ categoryLabel, playType: pt }) => (
+                    <section key={`ov-${pt.id}`} className="hk6-play-section hk6-play-section--overflow">
+                      <header className="hk6-play-head">
+                        <span>{pt.name}</span>
+                        <span className="hk6-play-head-cat">{categoryLabel}</span>
+                      </header>
+                      <div className="hk6-option-grid">
+                        {pt.options.map((opt) => {
+                          const k = lineKey(pt.id, opt.id);
+                          const on = selectedKeys.has(k);
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              className={`hk6-option-cell ${on ? 'hk6-option-cell--on' : ''}`}
+                              onClick={() => toggleOption(pt.id, opt.id)}
+                            >
+                              <span className="hk6-option-label">{opt.label}</span>
+                              <span className="hk6-option-odds">{opt.odds}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+                </>
+              ) : null}
+            </>
           )}
         </div>
       </section>

@@ -11,6 +11,7 @@ const finance = require('./finance');
 const hkMarkSix = require('./hkMarkSix');
 const canada28 = require('./canada28');
 const speedRacing = require('./speedRacing');
+const userReports = require('./userReports');
 
 const PORT = Number(process.env.PORT || 3301);
 /** 星彩式：X-Admin-Token 或环境变量，与 /api/admin/login 独立 */
@@ -203,6 +204,37 @@ function securityPresets() {
     ],
     rows: [],
   };
+}
+
+function normSecAnswer(s) {
+  return String(s || '').trim().toLowerCase();
+}
+
+function userSecurityQuestionPayload(user) {
+  const presetList = securityPresets().list;
+  const map = new Map(presetList.map((x) => [x.id, x.text]));
+  const seen = new Set();
+  const out = [];
+  for (const row of Array.isArray(user.security) ? user.security : []) {
+    const id = String(row.questionId || '').trim();
+    if (!id || seen.has(id)) continue;
+    const text = map.get(id);
+    if (!text) continue;
+    seen.add(id);
+    out.push({ id, text });
+  }
+  return out;
+}
+
+function verifyUserSecurityAnswer(user, questionId, rawAnswer) {
+  const qid = String(questionId || '').trim();
+  if (!qid || !String(rawAnswer || '').trim()) return false;
+  const want = normSecAnswer(rawAnswer);
+  const sec = Array.isArray(user.security) ? user.security : [];
+  for (const row of sec) {
+    if (String(row.questionId || '').trim() === qid && normSecAnswer(row.answer) === want) return true;
+  }
+  return false;
 }
 
 function setCaptcha(preSessionId) {
@@ -641,6 +673,72 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /** ----- GET /api/me/security-for-password ----- */
+    if (req.method === 'GET' && p === '/api/me/security-for-password') {
+      const uid = authUserId(req);
+      if (!uid) {
+        json(res, 401, { success: false, message: '请先登录' });
+        return;
+      }
+      const user = userById(uid);
+      if (!user) {
+        json(res, 401, { success: false, message: '用户不存在' });
+        return;
+      }
+      const questions = userSecurityQuestionPayload(user);
+      if (!questions.length) {
+        json(res, 200, {
+          success: false,
+          message: '当前账号未设置密保，无法通过密保修改登录密码。请联系管理员或使用注册时已绑定的其他方式。',
+        });
+        return;
+      }
+      json(res, 200, { success: true, questions });
+      return;
+    }
+
+    /** ----- POST /api/me/change-password ----- */
+    if (req.method === 'POST' && p === '/api/me/change-password') {
+      const uid = authUserId(req);
+      if (!uid) {
+        json(res, 401, { success: false, message: '请先登录' });
+        return;
+      }
+      const user = userById(uid);
+      if (!user) {
+        json(res, 401, { success: false, message: '用户不存在' });
+        return;
+      }
+      const body = await parseBody(req);
+      const questionId = String(body.questionId || '').trim();
+      const answer = String(body.answer || '');
+      const newPassword = String(body.newPassword || '');
+      const newPasswordConfirm = String(body.newPasswordConfirm || '');
+      if (!questionId || !answer.trim()) {
+        json(res, 200, { success: false, message: '请选择密保问题并填写答案' });
+        return;
+      }
+      if (!verifyUserSecurityAnswer(user, questionId, answer)) {
+        json(res, 200, { success: false, message: '密保答案不正确' });
+        return;
+      }
+      if (newPassword.length < 6) {
+        json(res, 200, { success: false, message: '新登录密码至少 6 位' });
+        return;
+      }
+      if (newPassword !== newPasswordConfirm) {
+        json(res, 200, { success: false, message: '两次输入的新密码不一致' });
+        return;
+      }
+      const hp = hashPassword(newPassword);
+      user.passwordHash = hp.hash;
+      user.passwordSalt = hp.salt;
+      recordUserIp(user, req);
+      saveStore();
+      json(res, 200, { success: true, message: '登录密码已更新，下次请使用新密码登录。' });
+      return;
+    }
+
     /** ----- GET /api/activity/articles ----- */
     if (req.method === 'GET' && p === '/api/activity/articles') {
       ensureActivityArticles(store.cms);
@@ -659,8 +757,49 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const q = new URL(req.url || '', 'http://x');
-      const limit = Number(q.searchParams.get('limit'));
-      json(res, 200, { success: true, list: finance.listWalletRecords(store, uid, { limit }) });
+      const limitRaw = q.searchParams.get('limit');
+      const from = q.searchParams.get('from') || '';
+      const to = q.searchParams.get('to') || '';
+      const typesRaw = q.searchParams.get('types') || '';
+      const types = typesRaw
+        ? typesRaw
+            .split(',')
+            .map((x) => x.trim())
+            .filter(Boolean)
+        : null;
+      json(res, 200, {
+        success: true,
+        list: finance.listWalletRecords(store, uid, {
+          limit: limitRaw != null && limitRaw !== '' ? Number(limitRaw) : 200,
+          fromYmd: from,
+          toYmd: to,
+          types,
+        }),
+      });
+      return;
+    }
+
+    /** ----- GET /api/me/bet-orders ----- */
+    if (req.method === 'GET' && p === '/api/me/bet-orders') {
+      const uid = authUserId(req);
+      if (!uid) {
+        json(res, 401, { success: false, message: '请先登录' });
+        return;
+      }
+      const q = new URL(req.url || '', 'http://x');
+      const from = q.searchParams.get('from') || userReports.shanghaiTodayYmd();
+      const to = q.searchParams.get('to') || from;
+      const limitRaw = q.searchParams.get('limit');
+      json(res, 200, {
+        success: true,
+        list: userReports.listBetOrders(
+          store,
+          uid,
+          from,
+          to,
+          limitRaw != null && limitRaw !== '' ? Number(limitRaw) : 500,
+        ),
+      });
       return;
     }
 

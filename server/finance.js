@@ -108,18 +108,49 @@ function buildMeSummary(user, store) {
   };
 }
 
-function listWalletRecords(store, userId, { limit = 100 } = {}) {
+function shanghaiTodayYmd() {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai', hour12: false }).slice(0, 10);
+}
+
+function listWalletRecords(store, userId, opts = {}) {
   ensureMeta(store);
-  const rows = (store.ledger || [])
-    .filter((x) => x.userId === userId)
-    .slice(-limit)
-    .reverse();
+  const limit = Math.min(Math.max(Number(opts.limit) || 200, 1), 2000);
+  const types =
+    Array.isArray(opts.types) && opts.types.length
+      ? opts.types.map((x) => String(x || '').trim()).filter(Boolean)
+      : null;
+  const fromYmd = String(opts.fromYmd || '').trim();
+  const toYmd = String(opts.toYmd || '').trim();
+  const applyRange = /^\d{4}-\d{2}-\d{2}$/.test(fromYmd) || /^\d{4}-\d{2}-\d{2}$/.test(toYmd);
+
+  let rows = (store.ledger || []).filter((x) => x.userId === userId);
+  if (types && types.length) {
+    rows = rows.filter((x) => types.includes(String(x.type || '')));
+  }
+  if (applyRange) {
+    const fUse = /^\d{4}-\d{2}-\d{2}$/.test(fromYmd) ? fromYmd : /^\d{4}-\d{2}-\d{2}$/.test(toYmd) ? toYmd : shanghaiTodayYmd();
+    let tUse = /^\d{4}-\d{2}-\d{2}$/.test(toYmd) ? toYmd : fUse;
+    if (tUse < fUse) tUse = fUse;
+    const rangeStart = Date.parse(`${fUse}T00:00:00+08:00`);
+    const rangeEnd = Date.parse(`${tUse}T23:59:59.999+08:00`);
+    if (Number.isFinite(rangeStart) && Number.isFinite(rangeEnd)) {
+      rows = rows.filter((x) => {
+        const ts = new Date(x.createdAt).getTime();
+        return ts >= rangeStart && ts <= rangeEnd;
+      });
+    }
+    rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    rows = rows.slice(0, limit);
+  } else {
+    rows = rows.slice(-limit).reverse();
+  }
   return rows.map((r) => ({
     id: r.id,
     time: new Date(r.createdAt).toLocaleString('zh-CN'),
     type: r.title || r.type,
     amount: `${r.delta >= 0 ? '+' : ''}${Number(r.delta).toFixed(2)}`,
     status: r.status,
+    ledgerType: String(r.type || ''),
   }));
 }
 
@@ -129,4 +160,5 @@ module.exports = {
   buildMeSummary,
   appendLedgerEntry,
   listWalletRecords,
+  shanghaiTodayYmd,
 };
