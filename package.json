@@ -9,6 +9,7 @@
     "build": "webpack --mode production",
     "deploy:vps": "powershell -ExecutionPolicy Bypass -File scripts/deploy-vps.ps1",
     "deploy:vps:quick": "powershell -ExecutionPolicy Bypass -File scripts/deploy-vps.ps1 -SkipBuild",
+    "deploy:vps:server": "powershell -ExecutionPolicy Bypass -File scripts/deploy-vps.ps1 -ServerOnly",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
