@@ -122,6 +122,8 @@ type OverviewUser = {
   id: string;
   displayId8: string;
   customerNo: string;
+  lastIp: string;
+  monthHk6Pnl: number;
   nickname: string;
   parentId: string | null;
   parentNickname: string | null;
@@ -417,7 +419,7 @@ export function AdminConsolePage() {
             <div className="dh-admin-card">
               <h2 className="dh-admin-h2">用户列表 · 上下级与邀请码</h2>
               <p className="dh-admin-text-muted">
-                数据来自大都汇注册（parentId / 邀请码）。可按 8 位展示 ID、客户号、昵称或内部 id 搜索（与充值客服留言中的 id 一致）。
+                数据来自大都汇注册（parentId / 邀请码）。可按 8 位展示 ID、客户号、昵称、IP 或内部 id 搜索（与充值客服留言中的 id 一致）。
               </p>
               <label className="dh-admin-label" style={{ display: 'block', marginBottom: '1rem', maxWidth: '420px' }}>
                 搜索用户
@@ -437,6 +439,8 @@ export function AdminConsolePage() {
                       <th>用户</th>
                       <th>展示 ID（8 位）</th>
                       <th>客户号</th>
+                      <th>最近 IP</th>
+                      <th>当月港彩盈亏</th>
                       <th>上级</th>
                       <th>注册邀请码</th>
                       <th>直属下级数</th>
@@ -456,6 +460,12 @@ export function AdminConsolePage() {
                         </td>
                         <td>
                           <code>{u.customerNo || '—'}</code>
+                        </td>
+                        <td>
+                          <code>{u.lastIp || '—'}</code>
+                        </td>
+                        <td>
+                          {typeof u.monthHk6Pnl === 'number' ? `¥${u.monthHk6Pnl.toFixed(2)}` : '—'}
                         </td>
                         <td>{u.parentNickname ?? '—'}</td>
                         <td>

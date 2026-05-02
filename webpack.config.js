@@ -179,6 +179,7 @@ module.exports = (env = {}, argv) => {
                     success: true,
                     message: '到账成功（开发模拟）',
                     balance: s.balance,
+                    displayId8: String(s.displayId8 || ''),
                   });
                 });
                 return;

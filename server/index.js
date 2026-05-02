@@ -124,6 +124,28 @@ function authUserId(req) {
   return sessions.get(t) || null;
 }
 
+function getClientIp(req) {
+  const xf = req.headers['x-forwarded-for'];
+  if (xf) {
+    const first = String(xf).split(',')[0].trim();
+    if (first) return first;
+  }
+  const xr = req.headers['x-real-ip'];
+  if (xr && String(xr).trim()) return String(xr).trim();
+  const soc = req.socket && req.socket.remoteAddress;
+  if (soc) return String(soc).replace(/^::ffff:/, '');
+  return '';
+}
+
+function recordUserIp(user, req) {
+  if (!user || !req) return false;
+  const ip = getClientIp(req);
+  if (!ip) return false;
+  user.lastIp = ip;
+  user.lastIpAt = new Date().toISOString();
+  return true;
+}
+
 function findUserByNickname(nickname) {
   const n = String(nickname || '').trim();
   return store.users.find((u) => u.nickname === n) || null;
@@ -199,6 +221,8 @@ function buildRelationOverview() {
       id: u.id,
       displayId8: String(u.displayId8 || ''),
       customerNo: String(u.customerNo ?? ''),
+      lastIp: String(u.lastIp || ''),
+      monthHk6Pnl: hkMarkSix.getUserHk6MonthPnl(store, u.id),
       nickname: u.nickname,
       parentId: u.parentId || null,
       parentNickname: parent ? parent.nickname : null,
@@ -215,7 +239,16 @@ function filterRelationOverviewRows(rows, qRaw) {
   if (!q) return rows;
   const qv = q.toLowerCase();
   return rows.filter((row) =>
-    [row.id, row.nickname, row.displayId8, row.customerNo, row.parentNickname, row.registeredViaInviteCode]
+    [
+      row.id,
+      row.nickname,
+      row.displayId8,
+      row.customerNo,
+      row.lastIp,
+      row.parentNickname,
+      row.registeredViaInviteCode,
+      row.monthHk6Pnl,
+    ]
       .map((s) => String(s || '').toLowerCase())
       .some((s) => s.includes(qv)),
   );
@@ -460,6 +493,7 @@ const server = http.createServer(async (req, res) => {
       };
       store.users.push(user);
       finance.ensureUserFinance(user, store);
+      recordUserIp(user, req);
       saveStore();
 
       const token = randomToken();
@@ -537,6 +571,11 @@ const server = http.createServer(async (req, res) => {
       preSessions.delete(preSessionId);
       const token = randomToken();
       sessions.set(token, entry.userId);
+      const uLogin = userById(entry.userId);
+      if (uLogin) {
+        recordUserIp(uLogin, req);
+        saveStore();
+      }
       json(res, 200, { success: true, token });
       return;
     }
@@ -554,6 +593,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       finance.ensureUserFinance(user, store);
+      recordUserIp(user, req);
       saveStore();
       const base = finance.buildMeSummary(user, store);
       const hkRoom = hkMarkSix.getUserRoomStats(store, uid);
@@ -606,8 +646,14 @@ const server = http.createServer(async (req, res) => {
         status: '成功',
         meta: { payMethod },
       });
+      recordUserIp(user, req);
       saveStore();
-      json(res, 200, { success: true, message: '到账成功（演示环境即时入账）', balance: user.balance });
+      json(res, 200, {
+        success: true,
+        message: '到账成功（演示环境即时入账）',
+        balance: user.balance,
+        displayId8: String(user.displayId8 || ''),
+      });
       return;
     }
 

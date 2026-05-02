@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../api/http';
 import { getToken } from '../lib/auth';
 import { useSupportChat } from '../context/SupportChatContext';
-import { publicDisplayId8 } from '../lib/publicDisplayId';
+import { csDisplayIdFromSummary } from '../lib/csDisplayId';
 import { PageHeader } from '../components/layout/PageHeader';
 import { walletContent } from '../content/wallet';
 
@@ -30,32 +30,29 @@ const DepositPage: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const dep = await apiPost<{ success?: boolean; message?: string }>('/api/deposit/submit', {
-        amount: Number(amount),
-        payMethod,
-      });
+      const dep = await apiPost<{ success?: boolean; message?: string; displayId8?: string }>(
+        '/api/deposit/submit',
+        {
+          amount: Number(amount),
+          payMethod,
+        },
+      );
       if (!dep.success) {
         setErrorMsg(dep.message || c.errorFallback);
         return;
       }
 
-      let userId = '****';
-      try {
-        const r = await apiGet<{
-          success?: boolean;
-          data?: { userId?: string | number; customerNo?: string; displayId8?: string };
-        }>('/api/me/summary');
-        const d8 = String(r?.data?.displayId8 ?? '').trim();
-        if (d8) {
-          userId = d8;
-        } else {
-          const rawId = String(r?.data?.userId ?? '').trim();
-          const cust = String(r?.data?.customerNo ?? '').trim();
-          const seed = rawId || cust;
-          if (seed) userId = publicDisplayId8(seed);
+      let userId = String(dep.displayId8 ?? '').trim();
+      if (!userId) {
+        try {
+          const r = await apiGet<{
+            success?: boolean;
+            data?: { userId?: string | number; customerNo?: string; displayId8?: string };
+          }>('/api/me/summary');
+          userId = csDisplayIdFromSummary(r?.data);
+        } catch {
+          userId = '****';
         }
-      } catch {
-        /* ignore */
       }
 
       const msgLabel = c.payMessageLabels[payMethod];

@@ -476,6 +476,37 @@ function getUserRoomStats(store, userId) {
   };
 }
 
+/** 按 Asia/Shanghai 自然月解析 ISO 时间的年月，用于与「当月」对齐 */
+function shanghaiYearMonthFromIso(iso) {
+  if (!iso) return null;
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return null;
+  const s = t.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai', hour12: false });
+  return { y: parseInt(s.slice(0, 4), 10), mo: parseInt(s.slice(5, 7), 10) - 1 };
+}
+
+function currentShanghaiYearMonth() {
+  const s = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai', hour12: false });
+  return { y: parseInt(s.slice(0, 4), 10), mo: parseInt(s.slice(5, 7), 10) - 1 };
+}
+
+/** 已结算注单在当月（上海时区）派彩的盈亏合计：payout - stake */
+function getUserHk6MonthPnl(store, userId) {
+  ensureHk6(store);
+  const uid = String(userId || '');
+  const cur = currentShanghaiYearMonth();
+  let pnl = 0;
+  for (const b of store.hkMarkSix.bets) {
+    if (String(b.userId) !== uid) continue;
+    if (b.status !== '已结算') continue;
+    const ts = b.settledAt || b.createdAt;
+    const ym = shanghaiYearMonthFromIso(ts);
+    if (!ym || ym.y !== cur.y || ym.mo !== cur.mo) continue;
+    pnl += (Number(b.payout) || 0) - (Number(b.total) || 0);
+  }
+  return Number(pnl.toFixed(2));
+}
+
 module.exports = {
   ensureHk6,
   getStatus,
@@ -485,6 +516,7 @@ module.exports = {
   touchHk6Sync,
   placeBet,
   getUserRoomStats,
+  getUserHk6MonthPnl,
   settleBetsForCompletedDraw,
   flushPendingSettlements,
 };

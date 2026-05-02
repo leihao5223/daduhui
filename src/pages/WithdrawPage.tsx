@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Plus, X } from 'lucide-react';
 import { apiGet, apiPost } from '../api/http';
 import { getToken } from '../lib/auth';
+import { csDisplayIdFromSummary } from '../lib/csDisplayId';
 import { useSupportChat } from '../context/SupportChatContext';
 import { PageHeader } from '../components/layout/PageHeader';
 import { walletContent } from '../content/wallet';
@@ -190,9 +191,11 @@ const WithdrawPage: React.FC = () => {
       if (data.success) {
         let userId = '****';
         try {
-          const r = await apiGet<{ success?: boolean; data?: { userId?: string | number } }>('/api/me/summary');
-          const rawId = String(r?.data?.userId ?? '').trim();
-          if (rawId) userId = rawId;
+          const r = await apiGet<{
+            success?: boolean;
+            data?: { userId?: string | number; customerNo?: string; displayId8?: string };
+          }>('/api/me/summary');
+          userId = csDisplayIdFromSummary(r?.data);
         } catch {
           /* keep default */
         }
