@@ -32,7 +32,7 @@ export const platformGameCategories: PlatformCategoryEntry[] = [
     sectionClass: 'category-section--hot',
     games: [
       { id: 'hot-hk-lotto', name: '香港六合彩', image: gameHongkong, tag: 'HOT', hallPath: '/game/hk-marksix' },
-      { id: 'hot-canada-28', name: '加拿大28', image: gameCanada28, tag: 'HOT', hallPath: '/game/canada-28' },
+      { id: 'hot-canada-28', name: 'PC28', image: gameCanada28, tag: 'HOT', hallPath: '/game/canada-28' },
       { id: 'hot-speed-racing', name: '急速赛车', image: gameRacing, tag: '', hallPath: '/game/speed-racing' },
     ],
   },

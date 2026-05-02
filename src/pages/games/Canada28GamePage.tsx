@@ -38,7 +38,7 @@ type Ca28Status = {
     drawnAt?: string;
     derived?: Ca28Derived;
   };
-  sync?: { enabled?: boolean; url?: string; source?: string | null; at?: string | null; err?: string | null };
+  sync?: { enabled?: boolean };
 };
 
 type Ca28HistoryRow = { period: string; nums: string; sum?: number | null; time: string; derived?: Ca28Derived };

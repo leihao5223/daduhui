@@ -1,5 +1,5 @@
 /**
- * 加拿大28 · 玩法2 规则与结算（赔率含本金；派彩 gross = stake * 有效倍数）
+ * Rules and settlement (odds include principal; payout gross = stake × multiplier).
  */
 
 const BIG_SUM = new Set(

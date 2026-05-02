@@ -22,7 +22,7 @@ const GameHallPage: React.FC<{ game: PlatformGameEntry }> = ({ game }) => {
               香港六合彩
             </button>
             <button type="button" className="dx-btn-primary" onClick={() => navigate('/game/canada-28')}>
-              加拿大28
+              PC28
             </button>
             <button type="button" className="dx-btn-primary" onClick={() => navigate('/game/speed-racing')}>
               急速赛车

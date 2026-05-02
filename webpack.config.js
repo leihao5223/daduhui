@@ -4,7 +4,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = (env = {}, argv) => {
   const isProd = argv.mode === 'production';
-  /** 开发时可用 `--env mockApi` 在无后端情况下提供最小 /api 桩 */
+  /** Dev-only: `--env mockApi` wires a minimal in-process /api handler. */
   const mockApi =
     Boolean(env.mockApi) ||
     process.env.PANGXIE_MOCK_API === '1' ||
@@ -14,7 +14,7 @@ module.exports = (env = {}, argv) => {
     !isProd && mockApi
       ? {
           setupMiddlewares(middlewares) {
-            /** 按 Bearer token 分会话（mockApi 模式） */
+            /** Session map keyed by Bearer token when mockApi is on. */
             const mockSessions = new Map();
 
             function derivedDisplayId8FromSeed(seed) {

@@ -1,5 +1,5 @@
 /**
- * 加拿大28 玩法2 · 注项 key = ca28:<kind>:<value>
+ * Play catalog; bet keys use prefix ca28:<kind>:<value>.
  */
 
 export type Ca28PlayOption = { key: string; label: string; odds: string };

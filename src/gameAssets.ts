@@ -1,5 +1,5 @@
 /**
- * 游戏配图（与素材编号对应：图1 澳门区旗、图2 香港、图3 加拿大28、图4 急速赛车）
+ * 游戏配图（与素材编号对应：图1 澳门区旗、图2 香港、图3 PC28、图4 急速赛车）
  */
 export const gameMacau = new URL('../assets/game-macau.png', import.meta.url).href;
 export const gameHongkong = new URL('../assets/game-hongkong.png', import.meta.url).href;

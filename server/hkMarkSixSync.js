@@ -120,7 +120,7 @@ function parseMarksix6ExtendedPayload(json) {
   return sorted.length <= cap ? sorted : sorted.slice(-cap);
 }
 
-/** 自建代理可返回：{ period: "HK2026046", balls: ["01",...], special: "12", drawnAt: ISO } */
+/** Direct JSON row: period, six main balls, special, optional drawnAt (ISO). */
 function normalizeRaw(json) {
   if (!json || !json.period || !Array.isArray(json.balls) || json.balls.length !== 6) return null;
   const balls = json.balls.map((x) => pad2(x)).filter(Boolean);

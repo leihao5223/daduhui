@@ -1,5 +1,5 @@
 /**
- * 加拿大28：状态、历史、下注、结算（3 位 0-9，和值玩法）
+ * Draws, bets, and settlement (three digits 0–9).
  */
 const crypto = require('crypto');
 const rules = require('./canada28Rules');
@@ -124,7 +124,7 @@ function settleBetsForDraw(store, drawRow, saveStore) {
       user.balance = Number((Number(user.balance) + gross).toFixed(2));
       finance.appendLedgerEntry(store, user.id, {
         type: 'ca28_settle',
-        title: '加拿大28-派彩',
+        title: 'PC28-派彩',
         delta: gross,
         balanceAfter: user.balance,
         meta: { betId: bet.id, period },
@@ -305,7 +305,7 @@ async function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
   }
   appendLedgerFn(user.id, {
     type: 'ca28_bet',
-    title: '加拿大28-下注',
+    title: 'PC28-下注',
     delta: -total,
     balanceAfter: user.balance,
     meta: { betId, period: periodNow, lines: normalized },

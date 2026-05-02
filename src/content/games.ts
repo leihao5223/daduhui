@@ -101,7 +101,7 @@ export const gamesContent = {
     quickGenPeng: '生成对碰注单',
   },
   ca28: {
-    title: '加拿大28',
+    title: 'PC28',
     subtitleLoading: '正在同步状态…',
     statusApiError: '无法连接开奖服务',
     subtitle: (period: string, sec: number | string, cycle: number) =>

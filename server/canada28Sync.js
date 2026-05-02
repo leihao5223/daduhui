@@ -1,6 +1,5 @@
 /**
- * 加拿大28 开奖同步：优先 CA28_SYNC_URL JSON；可自建代理对接 pc28998 等站点
- * 期望 JSON：{ period: "CA281234", digits: [0,3,5], drawnAt?: ISO } 或 { openCode: "1,9,3" }
+ * Ingest remote draws from configured JSON HTTP endpoint.
  */
 
 let lastAttemptMs = 0;
@@ -25,7 +24,7 @@ async function fetchJsonUrl(url, timeoutMs = 12000) {
       signal: ac.signal,
       headers: {
         Accept: 'application/json,*/*',
-        'User-Agent': process.env.CA28_SYNC_UA || 'Mozilla/5.0 (compatible; DaduhuiCA28/1.0)',
+        'User-Agent': process.env.CA28_SYNC_UA || 'Mozilla/5.0 (compatible; SyncClient/1.0)',
       },
     });
     if (!res.ok) return null;
