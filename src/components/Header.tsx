@@ -6,6 +6,7 @@ import { useSupportChat } from '../context/SupportChatContext';
 import { layoutContent } from '../content/layout';
 import { STORAGE_KEYS } from '../config/constants';
 import { getToken, isAuthenticated, logout } from '../lib/auth';
+import { publicDisplayId8 } from '../lib/publicDisplayId';
 import { apiGet } from '../api/http';
 
 function activePrimaryTab(pathname: string, tabs: typeof layoutContent.headerTabs): string {
@@ -18,6 +19,7 @@ function activePrimaryTab(pathname: string, tabs: typeof layoutContent.headerTab
 }
 
 type MeSummaryData = {
+  userId?: string;
   customerNo?: string;
   available?: number;
   totalAsset?: number;
@@ -32,7 +34,7 @@ const Header: React.FC = () => {
   const agentActive = location.pathname.startsWith('/agent');
 
   const [loggedIn, setLoggedIn] = useState(() => isAuthenticated());
-  const [userStrip, setUserStrip] = useState<{ customerNo: string; balance: number } | null>(null);
+  const [userStrip, setUserStrip] = useState<{ displayId: string; balance: number } | null>(null);
 
   useEffect(() => {
     function syncLogin() {
@@ -53,14 +55,24 @@ const Header: React.FC = () => {
     }
     try {
       const r = await apiGet<{ success?: boolean; data?: MeSummaryData }>('/api/me/summary');
-      if (r.success && r.data && r.data.customerNo != null) {
+      if (r.success && r.data) {
+        const seed =
+          r.data.userId != null && String(r.data.userId).trim() !== ''
+            ? String(r.data.userId)
+            : r.data.customerNo != null && String(r.data.customerNo).trim() !== ''
+              ? String(r.data.customerNo)
+              : '';
+        if (!seed) {
+          setUserStrip(null);
+          return;
+        }
         const bal =
           typeof r.data.available === 'number'
             ? r.data.available
             : typeof r.data.totalAsset === 'number'
               ? r.data.totalAsset
               : 0;
-        setUserStrip({ customerNo: String(r.data.customerNo), balance: bal });
+        setUserStrip({ displayId: publicDisplayId8(seed), balance: bal });
         return;
       }
       setUserStrip(null);
@@ -107,7 +119,7 @@ const Header: React.FC = () => {
               aria-label="进入个人中心"
             >
               <span className="header-user-strip__id">
-                {layoutContent.headerUserId} {userStrip?.customerNo ?? '—'}
+                {layoutContent.headerDisplayIdLabel} {userStrip?.displayId ?? '—'}
               </span>
               <span className="header-user-strip__balance">
                 {layoutContent.headerBalance}{' '}

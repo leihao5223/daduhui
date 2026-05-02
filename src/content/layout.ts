@@ -4,7 +4,7 @@ export const layoutContent = {
   logoAlt: '大都汇',
   login: '登录',
   register: '注册',
-  headerUserId: '客户号',
+  headerDisplayIdLabel: 'ID',
   headerBalance: '余额',
   headerUserLoading: '加载中…',
   headerTabs: [
