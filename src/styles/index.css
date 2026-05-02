@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * 整站视觉约缩小 15%（按比例 0.85），布局仍按视口百分比/rem 自适应。
+ * 优先使用 zoom 使 rem 与 px 同框一致缩放；不支持的浏览器回退为调小根字号。
+ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@supports (zoom: 0.85) {
+  html {
+    zoom: 0.85;
+  }
+}
+
+@supports not (zoom: 0.85) {
+  html {
+    font-size: 85%;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;
