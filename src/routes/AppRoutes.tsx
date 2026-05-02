@@ -6,6 +6,7 @@ import { SupportChatPanel } from '../components/support/SupportChatPanel';
 import MainLayout from '../layouts/MainLayout';
 import HomePage from '../pages/HomePage';
 import PlaceholderPage from '../pages/PlaceholderPage';
+import ActivityPage from '../pages/ActivityPage';
 import DepositPage from '../pages/DepositPage';
 import WithdrawPage from '../pages/WithdrawPage';
 import ProfilePage from '../pages/ProfilePage';
@@ -53,7 +54,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="withdraw" element={<WithdrawPage />} />
           <Route path="sports" element={<PlaceholderPage pageKey="sports" />} />
           <Route path="lottery" element={<Navigate to="/agent" replace />} />
-          <Route path="activity" element={<PlaceholderPage pageKey="activity" />} />
+          <Route path="activity" element={<ActivityPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="wallet/records" element={<AssetRecordsPage />} />
           <Route path="agent" element={<AgentCenterPage />} />

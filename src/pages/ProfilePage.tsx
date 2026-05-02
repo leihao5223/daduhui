@@ -1,18 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  FileBarChart2,
-  Headphones,
-  Coins,
-  UserRound,
-} from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, FileBarChart2, Coins, UserRound } from 'lucide-react';
 import { apiGet } from '../api/http';
 import { getToken, logout } from '../lib/auth';
 import { publicDisplayId8 } from '../lib/publicDisplayId';
 import { PageHeader } from '../components/layout/PageHeader';
-import { useSupportChat } from '../context/SupportChatContext';
 import { profileContent } from '../content/profile';
 
 type MeSummary = {
@@ -143,11 +135,6 @@ const ProfilePage: React.FC = () => {
 
         <section className="dx-menu-block">
           <p className="dx-menu-eyebrow">{profileContent.menuEyebrow}</p>
-          <button type="button" className="dx-menu-row" onClick={() => openChat()}>
-            <Headphones size={20} />
-            <span>{profileContent.onlineSupport}</span>
-            <span className="dx-menu-arrow">›</span>
-          </button>
           <Link to="/agent" className="dx-menu-row">
             <Coins size={20} />
             <span>{profileContent.agentCenter}</span>

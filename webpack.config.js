@@ -95,6 +95,18 @@ module.exports = (env = {}, argv) => {
                 return;
               }
 
+              if (req.method === 'GET' && pathOnly === '/api/activity/articles') {
+                sendJson(res, 200, {
+                  success: true,
+                  list: [
+                    { id: 'activity-1', title: '', body: '', updatedAt: null },
+                    { id: 'activity-2', title: '', body: '', updatedAt: null },
+                    { id: 'activity-3', title: '', body: '', updatedAt: null },
+                  ],
+                });
+                return;
+              }
+
               if (req.method === 'POST' && pathOnly === '/api/auth/register') {
                 void readJsonBody(req).then((body) => {
                   let inviteNote = '';

@@ -1,4 +1,4 @@
-export type PlaceholderPageKey = 'sports' | 'activity' | 'support' | 'forgotPassword';
+export type PlaceholderPageKey = 'sports' | 'support' | 'forgotPassword';
 
 export const placeholderContent: Record<
   PlaceholderPageKey,
@@ -7,10 +7,6 @@ export const placeholderContent: Record<
   sports: {
     title: '体育中心',
     description: '足球、篮球与电竞赛事将陆续接入，敬请期待。',
-  },
-  activity: {
-    title: '活动中心',
-    description: '限时优惠与任务奖励策划中，敬请关注公告。',
   },
   support: {
     title: '联系客服',

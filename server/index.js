@@ -19,8 +19,8 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'daduhui_admin';
 const DATA_FILE = path.join(__dirname, 'data', 'store.json');
 
-/** @type {{ users: any[]; inviteCodes: any[]; cms?: { companyInfo?: Record<string, unknown> } }} */
-let store = { users: [], inviteCodes: [], cms: { companyInfo: {} } };
+/** @type {{ users: any[]; inviteCodes: any[]; cms?: { companyInfo?: Record<string, unknown>; activityArticles?: any[] } }} */
+let store = { users: [], inviteCodes: [], cms: { companyInfo: {}, activityArticles: [] } };
 
 /** @type {Map<string, string>} */
 const sessions = new Map();
@@ -37,13 +37,39 @@ function loadStore() {
     const j = JSON.parse(raw);
     if (!Array.isArray(j.users)) j.users = [];
     if (!Array.isArray(j.inviteCodes)) j.inviteCodes = [];
-    if (!j.cms || typeof j.cms !== 'object') j.cms = { companyInfo: {} };
+    if (!j.cms || typeof j.cms !== 'object') j.cms = { companyInfo: {}, activityArticles: [] };
     if (!j.cms.companyInfo || typeof j.cms.companyInfo !== 'object') j.cms.companyInfo = {};
+    if (!Array.isArray(j.cms.activityArticles)) j.cms.activityArticles = [];
     return j;
   } catch {
     /* empty */
   }
-  return { users: [], inviteCodes: [], cms: { companyInfo: {} } };
+  return { users: [], inviteCodes: [], cms: { companyInfo: {}, activityArticles: [] } };
+}
+
+function defaultActivityArticles() {
+  return [
+    { id: 'activity-1', title: '', body: '', updatedAt: null },
+    { id: 'activity-2', title: '', body: '', updatedAt: null },
+    { id: 'activity-3', title: '', body: '', updatedAt: null },
+  ];
+}
+
+function ensureActivityArticles(cms) {
+  if (!cms || typeof cms !== 'object') return;
+  const defaults = defaultActivityArticles();
+  const raw = Array.isArray(cms.activityArticles) ? cms.activityArticles : [];
+  const next = [];
+  for (let i = 0; i < 3; i++) {
+    const row = raw[i] && typeof raw[i] === 'object' ? raw[i] : {};
+    next.push({
+      id: String(row.id || defaults[i].id),
+      title: String(row.title || '').slice(0, 500),
+      body: String(row.body || '').slice(0, 50000),
+      updatedAt: row.updatedAt != null && String(row.updatedAt).trim() ? String(row.updatedAt) : null,
+    });
+  }
+  cms.activityArticles = next;
 }
 
 function saveStore() {
@@ -61,6 +87,7 @@ function migrateStore() {
   hkMarkSix.ensureHk6(store);
   canada28.ensureCanada28(store);
   speedRacing.ensureSpeed(store);
+  ensureActivityArticles(store.cms);
   saveStore();
 }
 
@@ -614,6 +641,16 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /** ----- GET /api/activity/articles ----- */
+    if (req.method === 'GET' && p === '/api/activity/articles') {
+      ensureActivityArticles(store.cms);
+      json(res, 200, {
+        success: true,
+        list: store.cms.activityArticles,
+      });
+      return;
+    }
+
     /** ----- GET /api/me/wallet-records ----- */
     if (req.method === 'GET' && p === '/api/me/wallet-records') {
       const uid = authUserId(req);
@@ -942,12 +979,40 @@ const server = http.createServer(async (req, res) => {
     /** ----- GET /api/admin/cms ----- */
     if (req.method === 'GET' && p === '/api/admin/cms') {
       if (!requireAdmin(req, res)) return;
+      ensureActivityArticles(store.cms);
       json(res, 200, {
         success: true,
         data: {
           companyInfo: store.cms.companyInfo || {},
+          activityArticles: store.cms.activityArticles,
         },
       });
+      return;
+    }
+
+    /** ----- PUT /api/admin/cms/activityArticles ----- */
+    if (req.method === 'PUT' && p === '/api/admin/cms/activityArticles') {
+      if (!requireAdmin(req, res)) return;
+      const body = await parseBody(req);
+      const articles = body.articles;
+      if (!Array.isArray(articles)) {
+        json(res, 400, { success: false, message: 'articles 须为数组' });
+        return;
+      }
+      ensureActivityArticles(store.cms);
+      const nowIso = new Date().toISOString();
+      for (let i = 0; i < 3; i++) {
+        const row = articles[i] && typeof articles[i] === 'object' ? articles[i] : {};
+        store.cms.activityArticles[i] = {
+          id: store.cms.activityArticles[i].id,
+          title: String(row.title || '').slice(0, 500),
+          body: String(row.body || '').slice(0, 50000),
+          updatedAt: nowIso,
+        };
+      }
+      ensureActivityArticles(store.cms);
+      saveStore();
+      json(res, 200, { success: true });
       return;
     }
 

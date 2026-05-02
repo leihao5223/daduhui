@@ -2,8 +2,11 @@ import React from 'react';
 import GameCard from './GameCard';
 import { platformGameCategories } from '../config/platformGameCatalog';
 import { homeContent } from '../content/home';
+import { useHomeShell } from '../context/HomeShellContext';
 
 const GameCategory: React.FC = () => {
+  const { openSportsUpdating } = useHomeShell();
+
   return (
     <section className="game-category" aria-label={homeContent.gameCategoryAriaLabel}>
       {platformGameCategories.map((category) => (
@@ -22,7 +25,12 @@ const GameCategory: React.FC = () => {
           </header>
           <div className="games-list-full">
             {category.games.map((game) => (
-              <GameCard key={game.id} game={game} playPath={game.hallPath} />
+              <GameCard
+                key={game.id}
+                game={game}
+                playPath={category.id === 'sports-center' ? undefined : game.hallPath}
+                onActivate={category.id === 'sports-center' ? () => openSportsUpdating() : undefined}
+              />
             ))}
           </div>
         </section>

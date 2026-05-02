@@ -132,6 +132,8 @@ type OverviewUser = {
   directDownlineCount: number;
 };
 
+type ActivityArticleRow = { id: string; title: string; body: string; updatedAt?: string | null };
+
 /** ========== 管理控制台（布局对齐星彩 AdminConsolePage，数据为大都汇） ========== */
 export function AdminConsolePage() {
   const navigate = useNavigate();
@@ -171,6 +173,11 @@ export function AdminConsolePage() {
   const [activeAgent, setActiveAgent] = useState<Record<string, unknown> | null>(null);
   const [agentReason, setAgentReason] = useState('');
   const [agentNote, setAgentNote] = useState('');
+  const [activityArticles, setActivityArticles] = useState<ActivityArticleRow[]>([
+    { id: 'activity-1', title: '', body: '', updatedAt: null },
+    { id: 'activity-2', title: '', body: '', updatedAt: null },
+    { id: 'activity-3', title: '', body: '', updatedAt: null },
+  ]);
 
   const pageMode = useMemo(() => {
     if (location.pathname === '/admin/agents') return 'agents';
@@ -223,7 +230,10 @@ export function AdminConsolePage() {
   }, []);
 
   const loadPolicy = useCallback(async () => {
-    const r = await adminFetch<{ success: boolean; data?: { companyInfo?: Record<string, unknown> } }>('/api/admin/cms');
+    const r = await adminFetch<{
+      success: boolean;
+      data?: { companyInfo?: Record<string, unknown>; activityArticles?: ActivityArticleRow[] };
+    }>('/api/admin/cms');
     const c = r.data?.companyInfo || {};
     try {
       const j = JSON.parse(String(c.agentRuleJson || '{}'));
@@ -245,6 +255,28 @@ export function AdminConsolePage() {
     } catch {
       setSystemSwitch({ enableTransfer: true, enableVipReward: true, enableDrawManual: true });
     }
+    const arts = r.data?.activityArticles;
+    if (Array.isArray(arts) && arts.length) {
+      const pad: ActivityArticleRow[] = [
+        { id: 'activity-1', title: '', body: '', updatedAt: null },
+        { id: 'activity-2', title: '', body: '', updatedAt: null },
+        { id: 'activity-3', title: '', body: '', updatedAt: null },
+      ];
+      setActivityArticles(
+        [0, 1, 2].map((i) => {
+          const row = arts[i];
+          if (row && typeof row === 'object') {
+            return {
+              id: String((row as ActivityArticleRow).id || pad[i].id),
+              title: String((row as ActivityArticleRow).title ?? ''),
+              body: String((row as ActivityArticleRow).body ?? ''),
+              updatedAt: (row as ActivityArticleRow).updatedAt ?? null,
+            };
+          }
+          return pad[i];
+        }),
+      );
+    }
   }, []);
 
   const loadAgents = useCallback(async () => {
@@ -262,7 +294,7 @@ export function AdminConsolePage() {
     if (pageMode === 'agents' || pageMode === 'winloss') {
       void loadAgents();
     }
-    if (pageMode === 'agents') {
+    if (pageMode === 'agents' || pageMode === 'dashboard') {
       void loadPolicy();
     }
   }, [navigate, pageMode, loadBase, loadAgents, loadPolicy]);
@@ -294,6 +326,15 @@ export function AdminConsolePage() {
       }),
     });
     window.alert('代理系统设置已保存');
+  }
+
+  async function saveActivityArticles() {
+    await adminFetch('/api/admin/cms/activityArticles', {
+      method: 'PUT',
+      body: JSON.stringify({ articles: activityArticles }),
+    });
+    window.alert('活动中心已保存');
+    await loadPolicy();
   }
 
   async function openAgentDetail(id: string) {
@@ -387,32 +428,77 @@ export function AdminConsolePage() {
           {loading ? <p className="dh-admin-text-muted">加载中…</p> : null}
 
           {pageMode === 'dashboard' && (
-            <div className="dh-admin-grid dh-admin-grid--3">
-              <div className="dh-admin-card">
-                <b>{stats.totalUsers}</b>
-                <p className="dh-admin-text-muted">总用户数</p>
+            <>
+              <div className="dh-admin-grid dh-admin-grid--3">
+                <div className="dh-admin-card">
+                  <b>{stats.totalUsers}</b>
+                  <p className="dh-admin-text-muted">总用户数</p>
+                </div>
+                <div className="dh-admin-card">
+                  <b>{stats.onlineUsers}</b>
+                  <p className="dh-admin-text-muted">在线用户</p>
+                </div>
+                <div className="dh-admin-card">
+                  <b>¥{stats.todayDeposits}</b>
+                  <p className="dh-admin-text-muted">今日存款</p>
+                </div>
+                <div className="dh-admin-card">
+                  <b>¥{stats.todayWithdrawals}</b>
+                  <p className="dh-admin-text-muted">今日取款</p>
+                </div>
+                <div className="dh-admin-card">
+                  <b>{stats.totalOrders}</b>
+                  <p className="dh-admin-text-muted">今日结算订单</p>
+                </div>
+                <div className="dh-admin-card">
+                  <b>{stats.activeRooms}</b>
+                  <p className="dh-admin-text-muted">活跃订单</p>
+                </div>
               </div>
-              <div className="dh-admin-card">
-                <b>{stats.onlineUsers}</b>
-                <p className="dh-admin-text-muted">在线用户</p>
+              <div className="dh-admin-card" style={{ marginTop: '1.5rem' }}>
+                <h2 className="dh-admin-h2">活动中心</h2>
+                <p className="dh-admin-text-muted">前台底部「活动」页固定展示 3 条，标题与正文可为空。</p>
+                {activityArticles.map((row, idx) => (
+                  <div key={row.id} style={{ marginBottom: '1.25rem' }}>
+                    <p style={{ fontWeight: 600, marginBottom: 8 }}>第 {idx + 1} 条</p>
+                    <label className="dh-admin-label" style={{ display: 'block', marginBottom: 8 }}>
+                      标题
+                      <input
+                        className="dh-admin-input"
+                        value={row.title}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setActivityArticles((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, title: v } : x)),
+                          );
+                        }}
+                      />
+                    </label>
+                    <label className="dh-admin-label" style={{ display: 'block' }}>
+                      正文
+                      <textarea
+                        className="dh-admin-input"
+                        style={{ minHeight: 100, resize: 'vertical' }}
+                        value={row.body}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setActivityArticles((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, body: v } : x)),
+                          );
+                        }}
+                      />
+                    </label>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="dh-admin-btn dh-admin-btn--primary"
+                  onClick={() => void saveActivityArticles()}
+                >
+                  保存活动页
+                </button>
               </div>
-              <div className="dh-admin-card">
-                <b>¥{stats.todayDeposits}</b>
-                <p className="dh-admin-text-muted">今日存款</p>
-              </div>
-              <div className="dh-admin-card">
-                <b>¥{stats.todayWithdrawals}</b>
-                <p className="dh-admin-text-muted">今日取款</p>
-              </div>
-              <div className="dh-admin-card">
-                <b>{stats.totalOrders}</b>
-                <p className="dh-admin-text-muted">今日结算订单</p>
-              </div>
-              <div className="dh-admin-card">
-                <b>{stats.activeRooms}</b>
-                <p className="dh-admin-text-muted">活跃订单</p>
-              </div>
-            </div>
+            </>
           )}
 
           {pageMode === 'users' && (

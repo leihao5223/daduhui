@@ -9,7 +9,6 @@ export const profileContent = {
   withdraw: '提现',
   fundRecords: '资金记录',
   menuEyebrow: '服务',
-  onlineSupport: '在线客服',
   agentCenter: '代理中心',
   logout: '退出登录',
 } as const;

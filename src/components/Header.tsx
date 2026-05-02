@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DADUHUI_LOGO_URL } from '../branding';
 import { useSupportChat } from '../context/SupportChatContext';
+import { useHomeShell } from '../context/HomeShellContext';
 import { layoutContent } from '../content/layout';
 import { STORAGE_KEYS } from '../config/constants';
 import { getToken, isAuthenticated, logout } from '../lib/auth';
@@ -30,7 +31,9 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { openChat } = useSupportChat();
+  const { openSportsUpdating } = useHomeShell();
   const tabs = layoutContent.headerTabs;
+  const isHome = location.pathname === '/' || location.pathname === '';
   const primaryActive = activePrimaryTab(location.pathname, tabs);
   const agentActive = location.pathname.startsWith('/agent');
 
@@ -154,41 +157,49 @@ const Header: React.FC = () => {
           )}
         </div>
       </div>
-      <nav className="nav-tabs">
-        <div className="tabs-container scrollbar-thin">
-          {tabs.map((tab) => (
-            <motion.button
-              key={tab.id}
-              type="button"
-              className={`tab-item ${primaryActive === tab.id ? 'active' : ''}`}
-              onClick={() => navigate(tab.path)}
-              whileTap={{ scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-            >
-              <i className={`fas ${tab.icon}`}></i>
-              <span>{tab.label}</span>
-            </motion.button>
-          ))}
+      {isHome ? (
+        <nav className="nav-tabs">
+          <div className="tabs-container scrollbar-thin">
+            {tabs.map((tab) => (
+              <motion.button
+                key={tab.id}
+                type="button"
+                className={`tab-item ${primaryActive === tab.id ? 'active' : ''}`}
+                onClick={() => {
+                  if (tab.id === 'sports') {
+                    openSportsUpdating();
+                    return;
+                  }
+                  navigate(tab.path);
+                }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+              >
+                <i className={`fas ${tab.icon}`}></i>
+                <span>{tab.label}</span>
+              </motion.button>
+            ))}
 
-          <div className="header-nav-slot header-nav-slot--agent" aria-label="代理入口">
-            <motion.button
-              type="button"
-              className={`tab-item ${agentActive ? 'active' : ''}`}
-              onClick={() => navigate('/agent')}
-              whileTap={{ scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-            >
-              <i className="fas fa-sitemap" />
-              <span>{layoutContent.agentCenter}</span>
-            </motion.button>
+            <div className="header-nav-slot header-nav-slot--agent" aria-label="代理入口">
+              <motion.button
+                type="button"
+                className={`tab-item ${agentActive ? 'active' : ''}`}
+                onClick={() => navigate('/agent')}
+                whileTap={{ scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+              >
+                <i className="fas fa-sitemap" />
+                <span>{layoutContent.agentCenter}</span>
+              </motion.button>
+            </div>
+
+            <button type="button" className="contact-btn" onClick={() => openChat()}>
+              <i className="fas fa-headset"></i>
+              <span>{layoutContent.contactSupport}</span>
+            </button>
           </div>
-
-          <button type="button" className="contact-btn" onClick={() => openChat()}>
-            <i className="fas fa-headset"></i>
-            <span>{layoutContent.contactSupport}</span>
-          </button>
-        </div>
-      </nav>
+        </nav>
+      ) : null}
     </header>
   );
 };

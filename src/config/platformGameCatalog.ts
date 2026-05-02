@@ -39,7 +39,7 @@ export const platformGameCategories: PlatformCategoryEntry[] = [
   {
     id: 'sports-center',
     title: '体育中心',
-    sectionClass: 'category-section--sports',
+    sectionClass: 'category-section--hot',
     games: [
       {
         id: 'sports-football',
