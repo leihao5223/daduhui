@@ -4,7 +4,6 @@
 import {
   gameCanada28,
   gameHongkong,
-  gameMacau,
   gameRacing,
   sportsComprehensive,
 } from '../gameAssets';
@@ -32,10 +31,9 @@ export const platformGameCategories: PlatformCategoryEntry[] = [
     title: '热门游戏',
     sectionClass: 'category-section--hot',
     games: [
-      { id: 'hot-canada-28', name: '加拿大28', image: gameCanada28, tag: 'HOT', hallPath: '/game/canada-28' },
-      { id: 'hot-macau-new', name: '新澳门', image: gameMacau, tag: 'NEW', hallPath: '/game/macau-new' },
-      { id: 'hot-speed-racing', name: '急速赛车', image: gameRacing, tag: '', hallPath: '/game/speed-racing' },
       { id: 'hot-hk-lotto', name: '香港六合彩', image: gameHongkong, tag: 'HOT', hallPath: '/game/hk-marksix' },
+      { id: 'hot-canada-28', name: '加拿大28', image: gameCanada28, tag: 'HOT', hallPath: '/game/canada-28' },
+      { id: 'hot-speed-racing', name: '急速赛车', image: gameRacing, tag: '', hallPath: '/game/speed-racing' },
     ],
   },
   {

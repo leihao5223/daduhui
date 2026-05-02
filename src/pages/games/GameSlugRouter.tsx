@@ -3,6 +3,8 @@ import { Navigate, useParams } from 'react-router-dom';
 import { findPlatformGameByHallPath } from '../../config/platformGameCatalog';
 import GameHallPage from './GameHallPage';
 import HkMarkSixGamePage from './HkMarkSixGamePage';
+import Canada28GamePage from './Canada28GamePage';
+import SpeedRacingGamePage from './SpeedRacingGamePage';
 
 const GameSlugRouter: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -12,6 +14,12 @@ const GameSlugRouter: React.FC = () => {
 
   if (slug === 'hk-marksix') {
     return <HkMarkSixGamePage />;
+  }
+  if (slug === 'canada-28') {
+    return <Canada28GamePage />;
+  }
+  if (slug === 'speed-racing') {
+    return <SpeedRacingGamePage />;
   }
 
   const path = `/game/${slug}`;

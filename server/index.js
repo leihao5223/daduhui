@@ -9,6 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const finance = require('./finance');
 const hkMarkSix = require('./hkMarkSix');
+const canada28 = require('./canada28');
+const speedRacing = require('./speedRacing');
 
 const PORT = Number(process.env.PORT || 3301);
 /** 星彩式：X-Admin-Token 或环境变量，与 /api/admin/login 独立 */
@@ -57,6 +59,8 @@ function migrateStore() {
     finance.ensureUserFinance(u, store);
   }
   hkMarkSix.ensureHk6(store);
+  canada28.ensureCanada28(store);
+  speedRacing.ensureSpeed(store);
   saveStore();
 }
 
@@ -600,6 +604,12 @@ const server = http.createServer(async (req, res) => {
       base.data.hk6Turnover = hkRoom.turnover;
       base.data.hk6Pnl = hkRoom.pnl;
       base.data.hk6Rebate = hkRoom.rebate;
+      const ca28 = canada28.getUserRoomStats(store, uid);
+      base.data.ca28Turnover = ca28.turnover;
+      base.data.ca28Pnl = ca28.pnl;
+      const sr = speedRacing.getUserRoomStats(store, uid);
+      base.data.speedTurnover = sr.turnover;
+      base.data.speedPnl = sr.pnl;
       json(res, 200, base);
       return;
     }
@@ -741,6 +751,90 @@ const server = http.createServer(async (req, res) => {
       finance.ensureUserFinance(user, store);
       const ledgerAppend = (userId, entry) => finance.appendLedgerEntry(store, userId, entry);
       const result = await hkMarkSix.placeBet(store, uid, body, ledgerAppend, saveStore, user);
+      if (!result.ok) {
+        json(res, result.status, result.body);
+        return;
+      }
+      json(res, 200, result.body);
+      return;
+    }
+
+    /** ----- GET /api/game/canada-28/status ----- */
+    if (req.method === 'GET' && p === '/api/game/canada-28/status') {
+      await canada28.touchSync(store, saveStore);
+      saveStore();
+      json(res, 200, canada28.getStatus(store));
+      return;
+    }
+
+    /** ----- GET /api/game/canada-28/history ----- */
+    if (req.method === 'GET' && p === '/api/game/canada-28/history') {
+      await canada28.touchSync(store, saveStore);
+      saveStore();
+      const q = new URL(req.url || '', 'http://x');
+      const limit = q.searchParams.get('limit');
+      json(res, 200, canada28.getHistory(store, limit));
+      return;
+    }
+
+    /** ----- POST /api/game/canada-28/bet ----- */
+    if (req.method === 'POST' && p === '/api/game/canada-28/bet') {
+      const uid = authUserId(req);
+      if (!uid) {
+        json(res, 401, { success: false, message: '请先登录' });
+        return;
+      }
+      const user = userById(uid);
+      if (!user) {
+        json(res, 401, { success: false, message: '用户不存在' });
+        return;
+      }
+      const body = await parseBody(req);
+      finance.ensureUserFinance(user, store);
+      const ledgerAppend = (userId, entry) => finance.appendLedgerEntry(store, userId, entry);
+      const result = await canada28.placeBet(store, uid, body, ledgerAppend, saveStore, user);
+      if (!result.ok) {
+        json(res, result.status, result.body);
+        return;
+      }
+      json(res, 200, result.body);
+      return;
+    }
+
+    /** ----- GET /api/game/speed-racing/status ----- */
+    if (req.method === 'GET' && p === '/api/game/speed-racing/status') {
+      speedRacing.touchSync(store, saveStore);
+      saveStore();
+      json(res, 200, speedRacing.getStatus(store));
+      return;
+    }
+
+    /** ----- GET /api/game/speed-racing/history ----- */
+    if (req.method === 'GET' && p === '/api/game/speed-racing/history') {
+      speedRacing.touchSync(store, saveStore);
+      saveStore();
+      const q = new URL(req.url || '', 'http://x');
+      const limit = q.searchParams.get('limit');
+      json(res, 200, speedRacing.getHistory(store, limit));
+      return;
+    }
+
+    /** ----- POST /api/game/speed-racing/bet ----- */
+    if (req.method === 'POST' && p === '/api/game/speed-racing/bet') {
+      const uid = authUserId(req);
+      if (!uid) {
+        json(res, 401, { success: false, message: '请先登录' });
+        return;
+      }
+      const user = userById(uid);
+      if (!user) {
+        json(res, 401, { success: false, message: '用户不存在' });
+        return;
+      }
+      const body = await parseBody(req);
+      finance.ensureUserFinance(user, store);
+      const ledgerAppend = (userId, entry) => finance.appendLedgerEntry(store, userId, entry);
+      const result = await speedRacing.placeBet(store, uid, body, ledgerAppend, saveStore, user);
       if (!result.ok) {
         json(res, result.status, result.body);
         return;
