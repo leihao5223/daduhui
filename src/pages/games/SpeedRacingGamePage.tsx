@@ -286,41 +286,43 @@ const SpeedRacingGamePage: React.FC = () => {
         </div>
       </section>
 
-      <section className="hk6-row4" aria-label={t.summaryAria}>
-        <span>
-          {t.betSummary}：<strong>¥{total.toFixed(2)}</strong>
-        </span>
-        <span>
-          {t.totalTicketsPrefix} <strong>{nSel}</strong> {t.totalTicketsSuffix}
-        </span>
-      </section>
+      <div className="hk6-bet-dock">
+        <section className="hk6-row4" aria-label={t.summaryAria}>
+          <span>
+            {t.betSummary}：<strong>¥{total.toFixed(2)}</strong>
+          </span>
+          <span>
+            {t.totalTicketsPrefix} <strong>{nSel}</strong> {t.totalTicketsSuffix}
+          </span>
+        </section>
 
-      <footer className="hk6-row5">
-        <div className="hk6-chips">
-          {QUICK_STAKES.map((n) => (
-            <button key={n} type="button" className="hk6-chip" onClick={() => setUnitAmount(n)}>
-              {n}
+        <footer className="hk6-row5">
+          <div className="hk6-chips">
+            {QUICK_STAKES.map((n) => (
+              <button key={n} type="button" className="hk6-chip" onClick={() => setUnitAmount(n)}>
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="hk6-row5-actions">
+            <input
+              className="hk6-stake-input"
+              type="number"
+              min={1}
+              step={1}
+              value={unitAmount}
+              onChange={(e) => setUnitAmount(Number(e.target.value) || 0)}
+              aria-label={t.stakeInputAria}
+            />
+            <button type="button" className="hk6-btn-bet" onClick={() => void handleBet()} disabled={betting}>
+              {betting ? t.betting : t.bet}
             </button>
-          ))}
-        </div>
-        <div className="hk6-row5-actions">
-          <input
-            className="hk6-stake-input"
-            type="number"
-            min={1}
-            step={1}
-            value={unitAmount}
-            onChange={(e) => setUnitAmount(Number(e.target.value) || 0)}
-            aria-label={t.stakeInputAria}
-          />
-          <button type="button" className="hk6-btn-bet" onClick={() => void handleBet()} disabled={betting}>
-            {betting ? t.betting : t.bet}
-          </button>
-          <button type="button" className="hk6-btn-reset" onClick={() => setSelectedKeys(new Set())}>
-            {t.reset}
-          </button>
-        </div>
-      </footer>
+            <button type="button" className="hk6-btn-reset" onClick={() => setSelectedKeys(new Set())}>
+              {t.reset}
+            </button>
+          </div>
+        </footer>
+      </div>
 
       {historyOpen ? (
         <div className="hk6-modal-back" role="dialog" aria-modal="true" onClick={() => setHistoryOpen(false)}>

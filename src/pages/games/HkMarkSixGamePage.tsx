@@ -545,42 +545,44 @@ const HkMarkSixGamePage: React.FC = () => {
         </div>
       </section>
 
-      <section className="hk6-row4" aria-label={hk.summaryAria}>
-        <span>
-          {hk.betSummary}：<strong>¥{totalStake.toFixed(2)}</strong>
-        </span>
-        <span>
-          {hk.totalTicketsPrefix} <strong>{selectedCount}</strong> {hk.totalTicketsSuffix}
-        </span>
-      </section>
+      <div className="hk6-bet-dock">
+        <section className="hk6-row4" aria-label={hk.summaryAria}>
+          <span>
+            {hk.betSummary}：<strong>¥{totalStake.toFixed(2)}</strong>
+          </span>
+          <span>
+            {hk.totalTicketsPrefix} <strong>{selectedCount}</strong> {hk.totalTicketsSuffix}
+          </span>
+        </section>
 
-      <footer className="hk6-row5">
-        <div className="hk6-chips">
-          {QUICK_STAKES.map((n) => (
-            <button key={n} type="button" className="hk6-chip" onClick={() => setUnitAmount(n)}>
-              {n}
+        <footer className="hk6-row5">
+          <div className="hk6-chips">
+            {QUICK_STAKES.map((n) => (
+              <button key={n} type="button" className="hk6-chip" onClick={() => setUnitAmount(n)}>
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="hk6-row5-actions">
+            <input
+              className="hk6-stake-input"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={1}
+              value={unitAmount}
+              onChange={(e) => setUnitAmount(Number(e.target.value) || 0)}
+              aria-label={hk.stakeInputAria}
+            />
+            <button type="button" className="hk6-btn-bet" onClick={() => void handleBet()} disabled={betting}>
+              {betting ? hk.betting : hk.bet}
             </button>
-          ))}
-        </div>
-        <div className="hk6-row5-actions">
-          <input
-            className="hk6-stake-input"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            step={1}
-            value={unitAmount}
-            onChange={(e) => setUnitAmount(Number(e.target.value) || 0)}
-            aria-label={hk.stakeInputAria}
-          />
-          <button type="button" className="hk6-btn-bet" onClick={() => void handleBet()} disabled={betting}>
-            {betting ? hk.betting : hk.bet}
-          </button>
-          <button type="button" className="hk6-btn-reset" onClick={handleReset}>
-            {hk.reset}
-          </button>
-        </div>
-      </footer>
+            <button type="button" className="hk6-btn-reset" onClick={handleReset}>
+              {hk.reset}
+            </button>
+          </div>
+        </footer>
+      </div>
 
       {historyOpen ? (
         <div className="hk6-modal-back" role="dialog" aria-modal="true" onClick={() => setHistoryOpen(false)}>

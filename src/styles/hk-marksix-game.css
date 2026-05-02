@@ -1,13 +1,44 @@
 /* 香港六合彩全屏下注页 — 五段式布局，下注区 min-height:0 内滚动 */
 
 .hk6-game {
+  /* 为底部固定「汇总 + 下注」栏预留空间，避免整页缩放后底部露白 */
+  --hk6-dock-reserve: clamp(8.75rem, 32dvh, 13.5rem);
   min-height: 100dvh;
+  min-height: 100svh;
   height: 100dvh;
+  height: 100svh;
+  max-height: 100dvh;
+  max-height: 100svh;
   display: flex;
   flex-direction: column;
   background: #1a1d24;
   color: rgba(245, 243, 236, 0.92);
   overflow: hidden;
+  box-sizing: border-box;
+  padding-bottom: calc(var(--hk6-dock-reserve) + env(safe-area-inset-bottom, 0px));
+}
+
+/* 底部固定：注额汇总 + 快捷筹码 + 下注 / 重置 */
+.hk6-bet-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  background: rgba(10, 12, 18, 0.98);
+  border-top: 1px solid rgba(197, 160, 89, 0.18);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.35);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.hk6-bet-dock .hk6-row4 {
+  flex: 0 0 auto;
+  max-height: none;
+}
+
+.hk6-bet-dock .hk6-row5 {
+  /* 底栏安全区由 .hk6-bet-dock 承担，避免与 row5 双重叠加 */
+  padding: 0.5rem 0.75rem 0.5rem;
 }
 
 .hk6-game * {
