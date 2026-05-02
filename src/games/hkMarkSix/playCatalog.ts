@@ -1,5 +1,5 @@
 /**
- * 香港六合彩玩法目录（与 server/hkMarkSixRules.js 键格式一致，赔率为演示值）
+ * 香港六合彩玩法目录（键格式与 server/hkMarkSixRules.js 一致）
  */
 export type MarkSixOption = {
   id: string;

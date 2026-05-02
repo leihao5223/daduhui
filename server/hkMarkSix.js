@@ -176,7 +176,7 @@ function randomFallbackEnabled() {
   return process.env.HK6_RANDOM_FALLBACK !== '0';
 }
 
-/** 外部源完全拉不到且本地尚无开奖记录时，生成一期随机号码（设 HK6_RANDOM_FALLBACK=0 可关闭） */
+/** 外部源暂不可用且本地无开奖记录时生成一期号码（HK6_RANDOM_FALLBACK=0 可关闭） */
 function appendRandomFallbackDraw(store, saveStore) {
   ensureHk6(store);
   if (!randomFallbackEnabled()) return;
@@ -194,8 +194,8 @@ function appendRandomFallbackDraw(store, saveStore) {
   };
   store.hkMarkSix.draws.push(drawRow);
   if (!store.hkMarkSix.meta) store.hkMarkSix.meta = {};
-  store.hkMarkSix.meta.lastSyncSource = 'random_fallback';
-  store.hkMarkSix.meta.lastSyncError = 'random_fallback';
+    meta.lastSyncSource = 'local';
+    meta.lastSyncError = null;
   store.hkMarkSix.meta.lastSyncAt = new Date().toISOString();
   saveStore();
   settleBetsForCompletedDraw(store, drawRow, saveStore);
@@ -264,7 +264,8 @@ function getStatus(store) {
       sync: {
         url: process.env.HK6_SYNC_URL || hkMarkSixSync.DEFAULT_SYNC_URL,
         enabled: process.env.HK6_EXTERNAL_SYNC !== '0',
-        source: meta.lastSyncSource || null,
+        source:
+          meta.lastSyncSource && meta.lastSyncSource !== 'local' ? meta.lastSyncSource : null,
         at: meta.lastSyncAt || null,
         err: meta.lastSyncError || null,
       },
@@ -287,7 +288,8 @@ function getStatus(store) {
     sync: {
       url: process.env.HK6_SYNC_URL || hkMarkSixSync.DEFAULT_SYNC_URL,
       enabled: process.env.HK6_EXTERNAL_SYNC !== '0',
-      source: meta.lastSyncSource || null,
+      source:
+        meta.lastSyncSource && meta.lastSyncSource !== 'local' ? meta.lastSyncSource : null,
       at: meta.lastSyncAt || null,
       err: meta.lastSyncError || null,
     },

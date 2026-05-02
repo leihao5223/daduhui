@@ -266,7 +266,7 @@ const AgentCenterPage: React.FC = () => {
         <aside className="dx-card dx-agent-aside">
           <h3>说明</h3>
           <ul className="dx-agent-ul">
-            <li>直属下级返水总上限 {AGENT_TOTAL_REBATE_CAP}%（演示配置）。</li>
+            <li>直属下级返水总上限 {AGENT_TOTAL_REBATE_CAP}%。</li>
             <li>下级回水 ≈ 上限 − 你填写的抽水比例。</li>
             <li>邀请码由服务端生成并校验（代理须登录）；离线时仍可按旧逻辑生成本地码，但注册仅认可服务端有效邀请码。</li>
           </ul>

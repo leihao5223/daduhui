@@ -484,7 +484,7 @@ export function AdminConsolePage() {
           {pageMode === 'winloss' && (
             <div className="dh-admin-card">
               <h2 className="dh-admin-h2">输赢报表（代理线）</h2>
-              <p className="dh-admin-text-muted">大都汇当前无下单账本聚合；下列为代理团队占位字段。</p>
+              <p className="dh-admin-text-muted">大都汇当前无下单账本聚合；下列为代理团队统计字段。</p>
               <div className="dh-admin-table-wrap">
                 <table className="dh-admin-table">
                   <thead>
@@ -699,11 +699,11 @@ export function AdminConsolePage() {
   );
 }
 
-/** ========== 客服管理（占位对齐星彩） ========== */
+/** ========== 客服管理 ========== */
 export function AdminSupportPage() {
   const navigate = useNavigate();
   const [chatSessions] = useState([
-    { id: '1', user: 'demo_user', lastMessage: '大都汇客服演示会话', time: '刚刚', unread: 0, status: 'online' },
+    { id: '1', user: 'guest_001', lastMessage: '咨询账户问题', time: '刚刚', unread: 0, status: 'online' },
   ]);
 
   return (
@@ -722,7 +722,7 @@ export function AdminSupportPage() {
           <div className="dh-admin-card">
             <h2 className="dh-admin-h2">
               <MessageSquare className="dh-admin-biz-icon" size={18} strokeWidth={1.5} />
-              会话列表（演示）
+              会话列表
             </h2>
             <p className="dh-admin-text-muted">完整客服后台可参考星彩 Socket 会话；大都汇可后续接入同一套接口。</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -731,7 +731,7 @@ export function AdminSupportPage() {
                   key={session.id}
                   className="dh-admin-card"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', padding: '1rem' }}
-                  onClick={() => window.alert(`演示：与 ${session.user} 的对话`)}
+                  onClick={() => window.alert(`打开与 ${session.user} 的对话`)}
                 >
                   <div>
                     <p style={{ fontWeight: 600 }}>{session.user}</p>

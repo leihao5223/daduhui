@@ -4,7 +4,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = (env = {}, argv) => {
   const isProd = argv.mode === 'production';
-  /** `webpack serve --env mockApi` 或 `PANGXIE_MOCK_API=1`：无后端时模拟注册/密保接口 */
+  /** 开发时可用 `--env mockApi` 在无后端情况下提供最小 /api 桩 */
   const mockApi =
     Boolean(env.mockApi) ||
     process.env.PANGXIE_MOCK_API === '1' ||
@@ -14,7 +14,7 @@ module.exports = (env = {}, argv) => {
     !isProd && mockApi
       ? {
           setupMiddlewares(middlewares) {
-            /** 按 Bearer token 分会话，支撑 dev:mock 下 summary / 充值 / 流水 / 港彩 */
+            /** 按 Bearer token 分会话（mockApi 模式） */
             const mockSessions = new Map();
 
             function derivedDisplayId8FromSeed(seed) {
@@ -99,11 +99,11 @@ module.exports = (env = {}, argv) => {
                 void readJsonBody(req).then((body) => {
                   let inviteNote = '';
                   if (body.inviteCode && String(body.inviteCode).trim()) {
-                    inviteNote = `（邀请码 ${String(body.inviteCode).trim()} 已在模拟环境校验占位）`;
+                    inviteNote = `（邀请码 ${String(body.inviteCode).trim()}）`;
                   }
                   sendJson(res, 200, {
                     success: true,
-                    message: `注册成功（开发模拟）${inviteNote}`,
+                    message: `注册成功${inviteNote}`,
                     token: `dev.${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 11)}`,
                   });
                 });
@@ -177,7 +177,7 @@ module.exports = (env = {}, argv) => {
                   });
                   sendJson(res, 200, {
                     success: true,
-                    message: '到账成功（开发模拟）',
+                    message: '到账成功',
                     balance: s.balance,
                     displayId8: String(s.displayId8 || ''),
                   });
@@ -199,7 +199,7 @@ module.exports = (env = {}, argv) => {
                     return;
                   }
                   if (!/^\d{6}$/.test(pwd)) {
-                    sendJson(res, 200, { success: false, message: '交易密码须为 6 位数字（模拟环境任意 6 位数字可通过）' });
+                    sendJson(res, 200, { success: false, message: '交易密码须为 6 位数字' });
                     return;
                   }
                   if (s.balance < amount) {
@@ -214,7 +214,7 @@ module.exports = (env = {}, argv) => {
                     amount: `-${amount.toFixed(2)}`,
                     status: '处理中',
                   });
-                  sendJson(res, 200, { success: true, message: '提现申请已提交（开发模拟）' });
+                  sendJson(res, 200, { success: true, message: '提现申请已提交' });
                 });
                 return;
               }
@@ -283,7 +283,7 @@ module.exports = (env = {}, argv) => {
                   });
                   sendJson(res, 200, {
                     success: true,
-                    message: '下注成功（开发模拟）',
+                    message: '下注成功',
                     betId: `hk6_mock_${Date.now()}`,
                     period: 'HK2026001',
                     total,
@@ -355,7 +355,7 @@ module.exports = (env = {}, argv) => {
           type: 'asset/resource'
         },
         {
-          // 兜底规则：PDF、文档、音视频等所有其他文件一律输出为独立资源文件
+          // 其余类型：PDF、文档、音视频等资源打包规则
           exclude: /\.(js|jsx|ts|tsx|mjs|css|json|html)$/i,
           type: 'asset/resource'
         }

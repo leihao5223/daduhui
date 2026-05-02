@@ -1,5 +1,5 @@
 /**
- * 由内部 userId（或兜底种子）稳定派生 8 位展示用 ID，
+ * 由内部 userId（或备用种子）稳定派生 8 位展示用 ID，
  * 外观像随机数，同一账号始终不变。
  */
 export function publicDisplayId8(seed: string): string {

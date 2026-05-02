@@ -2,7 +2,7 @@ export const gamesContent = {
   hall: {
     titleSuffix: ' · 大厅',
     intro: (gameName: string) => `您已进入「${gameName}」游戏大厅。`,
-    detail: '完整玩法与盘口接入中，可先体验已开放游戏。',
+    detail: '请选择游戏进入。',
     goHk6: '前往香港六合彩',
     back: '返回上一页',
   },
@@ -10,18 +10,15 @@ export const gamesContent = {
     title: '香港六合彩',
     subtitleLoading: '正在同步状态…',
     statusApiError: '无法连接开奖服务（请检查 /api 是否反代到 Node 后端，或网络是否异常）',
-    syncStuckHint:
-      '暂无开奖记录：服务器可能无法访问 marksix6，请在主机上配置可出网的代理，或设置 HK6_SYNC_FALLBACK_FAKE=1 启用演示开奖',
+    syncStuckHint: '暂无开奖记录，请稍后再试或联系管理员检查开奖同步。',
     syncFailed: (code: string) =>
       code === 'fetch_failed'
-        ? '同步失败：服务器连不上开奖源（请检查出站网络、防火墙或代理）'
-        : code === 'random_fallback'
-          ? '未拉到外部开奖，已使用随机号码兜底（恢复同步后将自动以源为准更新）'
-          : code === 'period_not_newer'
-          ? '同步异常：本地开奖期号与源不一致，可清空 data/store.json 中 hkMarkSix.draws 后重启'
+        ? '同步失败：无法连接开奖源（请检查网络或稍后再试）'
+        : code === 'period_not_newer'
+          ? '同步异常：期号与数据源不一致，请联系管理员处理'
           : `同步失败（${code}）`,
     subtitle: (period: string, sec: number | string) =>
-      `投注期 ${period} · 演示封盘倒计时 ${sec}s`,
+      `投注期 ${period} · 封盘倒计时 ${sec}s`,
     syncSource: '同步',
     statsBalance: '余额',
     statsFlow: '流水',
@@ -108,11 +105,7 @@ export const gamesContent = {
     subtitleLoading: '正在同步状态…',
     statusApiError: '无法连接开奖服务',
     subtitle: (period: string, sec: number | string, cycle: number) =>
-      `投注期 ${period} · 距下期约 ${sec}s（周期 ${cycle}s，演示）`,
-    syncSource: '同步',
-    syncErr: (code: string) => `数据源: ${code}`,
-    sourceHint:
-      '开奖源可设环境变量 CA28_SYNC_URL（JSON：period + digits 或 openCode）。参考站点 pc28998.com，需自建接口转发。',
+      `投注期 ${period} · 距下期约 ${sec}s（周期 ${cycle}s）`,
     statsBalance: '余额',
     statsFlow: '流水',
     statsPnl: '输赢',
@@ -146,7 +139,7 @@ export const gamesContent = {
     subtitleLoading: '加载中…',
     statusApiError: '无法连接服务',
     subtitle: (period: string, sec: number | string, cycle: number) =>
-      `投注期 ${period} · 倒计时 ${sec}s（周期 ${cycle}s · 演示）`,
+      `投注期 ${period} · 倒计时 ${sec}s（周期 ${cycle}s）`,
     statsBalance: '余额',
     statsFlow: '流水',
     statsPnl: '输赢',
@@ -178,6 +171,6 @@ export const gamesContent = {
     summaryAria: '汇总',
     catDx: '冠军大小',
     catDs: '冠军单双',
-    note: '演示玩法：冠军车号 1–10，大≥6、单双按号码。',
+    note: '冠军车号 1–10；大为 ≥6，小为 ≤5；单双按号码。',
   },
 } as const;

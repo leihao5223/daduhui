@@ -13,7 +13,7 @@ function parseErrorMessageFromBody(text: string, status: number): string {
       return '服务暂不可用（上游未响应）';
     }
     if (status === 504) {
-      return '网关超时：请确认 API 已启动。本地可执行 npm run dev:mock 使用模拟接口。';
+      return '网关超时，请稍后再试。';
     }
     return `请求失败（HTTP ${status}）。请确认已配置 API 地址（API_BASE 或同源 /api 反代）且服务可用。`;
   }

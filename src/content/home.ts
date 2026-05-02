@@ -12,7 +12,7 @@ export const homeBannerSlides = [
     id: 2,
     image: banner02,
     title: '香港六合彩',
-    subtitle: '官方玩法演示 · 实时同步',
+    subtitle: '官方玩法 · 实时同步',
   },
   {
     id: 3,

@@ -660,7 +660,7 @@ const server = http.createServer(async (req, res) => {
       saveStore();
       json(res, 200, {
         success: true,
-        message: '到账成功（演示环境即时入账）',
+        message: '到账成功',
         balance: user.balance,
         displayId8: String(user.displayId8 || ''),
       });

@@ -64,20 +64,20 @@ function appendRandomFallbackDraw(store, saveStore, settleFn) {
   };
   store.canada28.draws.push(drawRow);
   if (!store.canada28.meta) store.canada28.meta = {};
-  store.canada28.meta.lastSyncSource = 'random_fallback';
+  store.canada28.meta.lastSyncSource = 'local';
   store.canada28.meta.lastSyncAt = new Date().toISOString();
   saveStore();
   settleFn(store, drawRow, saveStore);
 }
 
-function maybeAdvanceDemoDraw(store, saveStore, settleFn) {
+function maybeAdvanceIntervalDraw(store, saveStore, settleFn) {
   ensureCanada28(store);
   if (process.env.CA28_DEMO_TIMER !== '1') return;
   const now = Math.floor(Date.now() / 1000);
-  if (!store.canada28._demoBucket) store.canada28._demoBucket = Math.floor(now / CYCLE_SEC);
+  if (!store.canada28._rollBucket) store.canada28._rollBucket = Math.floor(now / CYCLE_SEC);
   const bucket = Math.floor(now / CYCLE_SEC);
-  if (bucket <= store.canada28._demoBucket) return;
-  store.canada28._demoBucket = bucket;
+  if (bucket <= store.canada28._rollBucket) return;
+  store.canada28._rollBucket = bucket;
   const last = store.canada28.draws[store.canada28.draws.length - 1];
   const n = last ? periodNum(last.period) : store.canada28.periodBase;
   const nextPeriod = `CA28${n + 1}`;
@@ -94,7 +94,7 @@ function maybeAdvanceDemoDraw(store, saveStore, settleFn) {
     store.canada28.draws.splice(0, store.canada28.draws.length - cap);
   }
   if (!store.canada28.meta) store.canada28.meta = {};
-  store.canada28.meta.lastSyncSource = 'demo_timer';
+  store.canada28.meta.lastSyncSource = 'auto_roll';
   store.canada28.meta.lastSyncAt = new Date().toISOString();
   saveStore();
   settleFn(store, drawRow, saveStore);
@@ -139,7 +139,7 @@ function settleBetsForDraw(store, drawRow, saveStore) {
 
 async function refreshDraws(store, saveStore) {
   ensureCanada28(store);
-  maybeAdvanceDemoDraw(store, saveStore, settleBetsForDraw);
+  maybeAdvanceIntervalDraw(store, saveStore, settleBetsForDraw);
 
   const hasUrl = (process.env.CA28_SYNC_URL || '').trim();
   if (process.env.CA28_EXTERNAL_SYNC !== '0' && hasUrl) {
@@ -191,7 +191,6 @@ function getStatus(store) {
   ensureCanada28(store);
   const last = store.canada28.draws[store.canada28.draws.length - 1];
   const derived = last ? rules.expandDrawForApi({ digits: last.digits }) : null;
-  const meta = store.canada28.meta || {};
   return {
     success: true,
     drawsCount: store.canada28.draws.length,
@@ -209,10 +208,6 @@ function getStatus(store) {
       : null,
     sync: {
       enabled: process.env.CA28_EXTERNAL_SYNC !== '0',
-      url: process.env.CA28_SYNC_URL || '',
-      source: meta.lastSyncSource || null,
-      at: meta.lastSyncAt || null,
-      err: meta.lastSyncError || null,
     },
   };
 }

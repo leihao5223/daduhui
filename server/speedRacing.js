@@ -1,5 +1,5 @@
 /**
- * 急速赛车（演示）：每期 1–10 排名，冠军号大小单双
+ * 急速赛车：每期 1–10 排名，冠军号大小单双
  */
 const crypto = require('crypto');
 const finance = require('./finance');

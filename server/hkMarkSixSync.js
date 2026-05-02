@@ -1,5 +1,5 @@
 /**
- * 外部开奖同步：marksix6 扩展接口含历史；单条接口为兜底；6g009 等需自建代理
+ * 外部开奖同步（marksix6 等扩展接口；可配置 HK6_SYNC_URL）
  * 玩家侧延后展示/派彩：在业务服务上设置 HK6_LAG_SEC（秒），相对源的 openTime（drawnAt）。
  */
 const DEFAULT_SYNC_URL = 'https://marksix6.net/api/lottery_api.php';

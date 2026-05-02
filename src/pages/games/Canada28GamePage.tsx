@@ -216,20 +216,7 @@ const Canada28GamePage: React.FC = () => {
                 : statusReqFailed
                   ? t.statusApiError
                   : t.subtitleLoading}
-              {status?.sync?.source ? (
-                <span className="hk6-sync-hint">
-                  {' '}
-                  · {t.syncSource}: {status.sync.source}
-                </span>
-              ) : null}
-              {status?.sync?.err ? (
-                <span className="hk6-sync-hint" style={{ color: '#ffab40' }}>
-                  {' '}
-                  · {t.syncErr(status.sync.err)}
-                </span>
-              ) : null}
             </p>
-            <p style={{ fontSize: 12, opacity: 0.75, margin: '4px 0 0' }}>{t.sourceHint}</p>
           </div>
         </div>
         <div className="hk6-stats">
