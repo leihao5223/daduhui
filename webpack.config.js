@@ -17,6 +17,17 @@ module.exports = (env = {}, argv) => {
             /** 按 Bearer token 分会话，支撑 dev:mock 下 summary / 充值 / 流水 / 港彩 */
             const mockSessions = new Map();
 
+            function derivedDisplayId8FromSeed(seed) {
+              const s = String(seed || '0');
+              let h = 2166136261;
+              for (let i = 0; i < s.length; i++) {
+                h ^= s.charCodeAt(i);
+                h = Math.imul(h, 16777619);
+              }
+              const u = h >>> 0;
+              return String(10000000 + (u % 90000000));
+            }
+
             function getBearer(req) {
               const h = req.headers.authorization;
               if (!h || !h.startsWith('Bearer ')) return '';
@@ -26,9 +37,11 @@ module.exports = (env = {}, argv) => {
             function getMockSession(token) {
               if (!token) return null;
               if (!mockSessions.has(token)) {
+                const userId = `mock_${(mockSessions.size + 1).toString(36)}`;
                 mockSessions.set(token, {
-                  userId: `mock_${(mockSessions.size + 1).toString(36)}`,
+                  userId,
                   customerNo: String(310000 + mockSessions.size),
+                  displayId8: derivedDisplayId8FromSeed(userId),
                   balance: 8888.88,
                   ledger: [],
                 });
@@ -108,6 +121,7 @@ module.exports = (env = {}, argv) => {
                   data: {
                     nameMask: '玩**',
                     customerNo: String(s.customerNo),
+                    displayId8: String(s.displayId8 || ''),
                     userId: s.userId,
                     totalAsset: Number(s.balance.toFixed(2)),
                     available: Number(s.balance.toFixed(2)),

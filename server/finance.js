@@ -12,12 +12,54 @@ function ensureMeta(store) {
   if (!Array.isArray(store.ledger)) store.ledger = [];
 }
 
+function randomDisplayId8() {
+  return String(crypto.randomInt(10000000, 100000000));
+}
+
+/** 与 `src/lib/publicDisplayId8.ts` 相同：由内部 id 稳定派生 8 位数（外观随机、同账号不变） */
+function derivedDisplayId8FromSeed(seed) {
+  const s = String(seed || '0');
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const u = h >>> 0;
+  return String(10000000 + (u % 90000000));
+}
+
+/** 8 位对外展示 ID（充值留言、页头）：持久化在 user.displayId8，全库唯一 */
+function ensureUserDisplayId8(user, store) {
+  const cur = String(user.displayId8 || '').trim();
+  if (/^\d{8}$/.test(cur)) return;
+  const used = new Set();
+  for (const u of store.users || []) {
+    const s = String(u.displayId8 || '').trim();
+    if (/^\d{8}$/.test(s)) used.add(s);
+  }
+  const derived = derivedDisplayId8FromSeed(user.id);
+  if (!used.has(derived)) {
+    user.displayId8 = derived;
+    return;
+  }
+  let id = randomDisplayId8();
+  for (let i = 0; i < 5000; i++) {
+    if (!used.has(id)) {
+      user.displayId8 = id;
+      return;
+    }
+    id = randomDisplayId8();
+  }
+  user.displayId8 = id;
+}
+
 function ensureUserFinance(user, store) {
   ensureMeta(store);
   if (typeof user.balance !== 'number' || !Number.isFinite(user.balance)) user.balance = 0;
   if (user.customerNo == null || user.customerNo === '') {
     user.customerNo = store.meta.nextCustomerNo++;
   }
+  ensureUserDisplayId8(user, store);
 }
 
 function maskNickname(nick) {
@@ -53,6 +95,7 @@ function buildMeSummary(user, store) {
     data: {
       nameMask: maskNickname(user.nickname),
       customerNo: String(user.customerNo),
+      displayId8: String(user.displayId8 || ''),
       userId: user.id,
       totalAsset: Number(user.balance.toFixed(2)),
       available: Number(user.balance.toFixed(2)),

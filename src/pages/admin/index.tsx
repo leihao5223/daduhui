@@ -120,6 +120,8 @@ export function AdminLoginPage() {
 
 type OverviewUser = {
   id: string;
+  displayId8: string;
+  customerNo: string;
   nickname: string;
   parentId: string | null;
   parentNickname: string | null;
@@ -161,6 +163,7 @@ export function AdminConsolePage() {
     }[]
   >([]);
   const [userRows, setUserRows] = useState<OverviewUser[]>([]);
+  const [userListQ, setUserListQ] = useState('');
   const [agentQ, setAgentQ] = useState('');
   const [agentStatus, setAgentStatus] = useState<'all' | 'active' | 'disabled'>('all');
   const [activeAgent, setActiveAgent] = useState<Record<string, unknown> | null>(null);
@@ -205,9 +208,11 @@ export function AdminConsolePage() {
     }
   }, []);
 
-  const loadUsers = useCallback(async () => {
+  const loadUsers = useCallback(async (q?: string) => {
     try {
-      const r = await adminFetch<{ success: boolean; list: OverviewUser[] }>('/api/admin/users');
+      const query = q !== undefined ? String(q).trim() : '';
+      const qs = query ? `?q=${encodeURIComponent(query)}` : '';
+      const r = await adminFetch<{ success: boolean; list: OverviewUser[] }>(`/api/admin/users${qs}`);
       setUserRows(Array.isArray(r.list) ? r.list : []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '加载失败');
@@ -258,10 +263,19 @@ export function AdminConsolePage() {
     if (pageMode === 'agents') {
       void loadPolicy();
     }
-    if (pageMode === 'users') {
-      void loadUsers();
+  }, [navigate, pageMode, loadBase, loadAgents, loadPolicy]);
+
+  useEffect(() => {
+    if (pageMode !== 'users') return;
+    if (!userListQ.trim()) {
+      void loadUsers('');
+      return;
     }
-  }, [navigate, pageMode, loadBase, loadAgents, loadPolicy, loadUsers]);
+    const t = window.setTimeout(() => {
+      void loadUsers(userListQ);
+    }, 320);
+    return () => window.clearTimeout(t);
+  }, [pageMode, userListQ, loadUsers]);
 
   async function savePolicy() {
     if (agentRule.maxPerLevelPercent > agentRule.totalCapPercent) {
@@ -402,12 +416,27 @@ export function AdminConsolePage() {
           {pageMode === 'users' && (
             <div className="dh-admin-card">
               <h2 className="dh-admin-h2">用户列表 · 上下级与邀请码</h2>
-              <p className="dh-admin-text-muted">数据来自大都汇注册（parentId / 邀请码）。账务与星彩对齐后可扩展。</p>
+              <p className="dh-admin-text-muted">
+                数据来自大都汇注册（parentId / 邀请码）。可按 8 位展示 ID、客户号、昵称或内部 id 搜索（与充值客服留言中的 id 一致）。
+              </p>
+              <label className="dh-admin-label" style={{ display: 'block', marginBottom: '1rem', maxWidth: '420px' }}>
+                搜索用户
+                <input
+                  className="dh-admin-input"
+                  type="search"
+                  placeholder="8 位 ID / 客户号 / 昵称"
+                  value={userListQ}
+                  onChange={(e) => setUserListQ(e.target.value)}
+                  autoComplete="off"
+                />
+              </label>
               <div className="dh-admin-table-wrap">
                 <table className="dh-admin-table">
                   <thead>
                     <tr>
                       <th>用户</th>
+                      <th>展示 ID（8 位）</th>
+                      <th>客户号</th>
                       <th>上级</th>
                       <th>注册邀请码</th>
                       <th>直属下级数</th>
@@ -421,6 +450,12 @@ export function AdminConsolePage() {
                           {u.nickname}
                           <br />
                           <span className="dh-admin-text-muted">{u.id}</span>
+                        </td>
+                        <td>
+                          <code>{u.displayId8 || '—'}</code>
+                        </td>
+                        <td>
+                          <code>{u.customerNo || '—'}</code>
                         </td>
                         <td>{u.parentNickname ?? '—'}</td>
                         <td>

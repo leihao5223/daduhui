@@ -21,6 +21,7 @@ function activePrimaryTab(pathname: string, tabs: typeof layoutContent.headerTab
 type MeSummaryData = {
   userId?: string;
   customerNo?: string;
+  displayId8?: string;
   available?: number;
   totalAsset?: number;
 };
@@ -62,7 +63,7 @@ const Header: React.FC = () => {
             : r.data.customerNo != null && String(r.data.customerNo).trim() !== ''
               ? String(r.data.customerNo)
               : '';
-        if (!seed) {
+        if (!seed && !(r.data.displayId8 != null && String(r.data.displayId8).trim() !== '')) {
           setUserStrip(null);
           return;
         }
@@ -72,7 +73,11 @@ const Header: React.FC = () => {
             : typeof r.data.totalAsset === 'number'
               ? r.data.totalAsset
               : 0;
-        setUserStrip({ displayId: publicDisplayId8(seed), balance: bal });
+        const displayId =
+          r.data.displayId8 != null && String(r.data.displayId8).trim() !== ''
+            ? String(r.data.displayId8).trim()
+            : publicDisplayId8(seed);
+        setUserStrip({ displayId, balance: bal });
         return;
       }
       setUserStrip(null);

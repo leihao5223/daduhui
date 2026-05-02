@@ -175,6 +175,15 @@ function userById(id) {
 }
 
 function buildRelationOverview() {
+  let dirty = false;
+  for (const u of store.users) {
+    const prevD = u.displayId8;
+    const prevC = u.customerNo;
+    finance.ensureUserFinance(u, store);
+    if (u.displayId8 !== prevD || u.customerNo !== prevC) dirty = true;
+  }
+  if (dirty) saveStore();
+
   const byParent = new Map();
   for (const u of store.users) {
     const pid = u.parentId;
@@ -188,6 +197,8 @@ function buildRelationOverview() {
     const children = byParent.get(u.id) || [];
     return {
       id: u.id,
+      displayId8: String(u.displayId8 || ''),
+      customerNo: String(u.customerNo ?? ''),
       nickname: u.nickname,
       parentId: u.parentId || null,
       parentNickname: parent ? parent.nickname : null,
@@ -197,6 +208,17 @@ function buildRelationOverview() {
       directDownline: children,
     };
   });
+}
+
+function filterRelationOverviewRows(rows, qRaw) {
+  const q = String(qRaw || '').trim();
+  if (!q) return rows;
+  const qv = q.toLowerCase();
+  return rows.filter((row) =>
+    [row.id, row.nickname, row.displayId8, row.customerNo, row.parentNickname, row.registeredViaInviteCode]
+      .map((s) => String(s || '').toLowerCase())
+      .some((s) => s.includes(qv)),
+  );
 }
 
 function codesForOwner(uid) {
@@ -800,10 +822,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    /** ----- GET /api/admin/users（会员列表 / 上下级） ----- */
+    /** ----- GET /api/admin/users（会员列表 / 上下级；?q= 可按昵称、内部 id、8 位展示 ID、客户号筛选） ----- */
     if (req.method === 'GET' && p === '/api/admin/users') {
       if (!requireAdmin(req, res)) return;
-      json(res, 200, { success: true, list: buildRelationOverview() });
+      const uq = url.searchParams.get('q') || '';
+      const list = filterRelationOverviewRows(buildRelationOverview(), uq);
+      json(res, 200, { success: true, list });
       return;
     }
 
@@ -902,7 +926,13 @@ const server = http.createServer(async (req, res) => {
       let overview = buildRelationOverview();
       if (q && String(q).trim()) {
         const needle = String(q).trim();
-        overview = overview.filter((u) => u.nickname.includes(needle));
+        overview = overview.filter(
+          (u) =>
+            u.nickname.includes(needle) ||
+            String(u.displayId8 || '').includes(needle) ||
+            String(u.customerNo || '').includes(needle) ||
+            String(u.id || '').includes(needle),
+        );
       }
       json(res, 200, { success: true, users: overview });
       return;

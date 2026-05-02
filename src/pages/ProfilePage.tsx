@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { apiGet } from '../api/http';
 import { getToken, logout } from '../lib/auth';
+import { publicDisplayId8 } from '../lib/publicDisplayId';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useSupportChat } from '../context/SupportChatContext';
 import { profileContent } from '../content/profile';
@@ -17,6 +18,7 @@ import { profileContent } from '../content/profile';
 type MeSummary = {
   nameMask?: string;
   customerNo?: string;
+  displayId8?: string;
   totalAsset?: number;
   userId?: string | number;
 };
@@ -88,7 +90,18 @@ const ProfilePage: React.FC = () => {
     );
   }
 
-  const displayId = user?.customerNo ?? user?.userId ?? '—';
+  const seed =
+    user?.userId != null && String(user.userId).trim() !== ''
+      ? String(user.userId)
+      : user?.customerNo != null && String(user.customerNo).trim() !== ''
+        ? String(user.customerNo)
+        : '';
+  const displayId =
+    user?.displayId8 != null && String(user.displayId8).trim() !== ''
+      ? String(user.displayId8).trim()
+      : seed
+        ? publicDisplayId8(seed)
+        : '—';
   const displayName = user?.nameMask ?? '用户';
   const balance = Number(user?.totalAsset ?? 0).toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
