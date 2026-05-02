@@ -56,7 +56,7 @@ module.exports = (env, argv) => {
           type: 'asset/resource'
         },
         {
-          // 兜底规则：PDF、文档、音视频等所有其他文件一律输出为独立资源文件
+          // 其余静态资源（PDF、文档、音视频等）按独立文件输出
           exclude: /\.(js|jsx|ts|tsx|mjs|css|json|html)$/i,
           type: 'asset/resource'
         }
