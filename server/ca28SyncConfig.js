@@ -13,8 +13,15 @@ function minIntervalMs() {
   return Number(process.env.DDH_CA28_FETCH_MIN_MS || process.env.CA28_SYNC_MIN_MS || 8000);
 }
 
+/** 内存中保留的开奖条数上限；下限 200 以便历史接口可返回最近 200 条 */
+function maxStoredDraws() {
+  const n = Number(process.env.CA28_MAX_DRAWS || 500);
+  return Math.min(Math.max(n, 200), 800);
+}
+
 module.exports = {
   remoteJsonUrl,
   syncUserAgent,
   minIntervalMs,
+  maxStoredDraws,
 };

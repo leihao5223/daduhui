@@ -131,7 +131,7 @@ async function tryIngestExternalDraw(store, saveStore, settleFn) {
   }
 
   store.canada28.draws.push(row);
-  const cap = Number(process.env.CA28_MAX_DRAWS || 500);
+  const cap = ca28SyncConfig.maxStoredDraws();
   if (store.canada28.draws.length > cap) {
     store.canada28.draws.splice(0, store.canada28.draws.length - cap);
   }

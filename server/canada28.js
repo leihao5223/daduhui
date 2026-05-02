@@ -10,8 +10,7 @@ const ca28SyncConfig = require('./ca28SyncConfig');
 const CYCLE_SEC = Number(process.env.CA28_CYCLE_SEC || 210); // 3.5 分钟
 
 function maxDrawCap() {
-  const n = Number(process.env.CA28_MAX_DRAWS || 500);
-  return Math.min(Math.max(n, 1), 800);
+  return ca28SyncConfig.maxStoredDraws();
 }
 
 function ensureCanada28(store) {
@@ -215,8 +214,10 @@ function getStatus(store) {
 
 function getHistory(store, limitRaw) {
   ensureCanada28(store);
-  const cap = maxDrawCap();
-  const lim = Math.min(Math.max(Number(limitRaw) || cap, 1), cap);
+  const retention = maxDrawCap();
+  const parsed = Number(limitRaw);
+  const want = Number.isFinite(parsed) && parsed > 0 ? parsed : 200;
+  const lim = Math.min(Math.max(want, 1), retention, 800, store.canada28.draws.length);
   const list = [...store.canada28.draws].reverse().slice(0, lim);
   return {
     success: true,
