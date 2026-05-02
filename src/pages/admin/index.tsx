@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect, useMemo, useCallback } from 'react';
+import { useState, FormEvent, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppWindow, FileBarChart2, MessageSquare, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -148,6 +148,45 @@ type LedgerAdminRow = {
   ledgerType: string;
 };
 
+type AdminUserDetail = {
+  id: string;
+  nickname: string;
+  displayId8: string;
+  customerNo: string;
+  inviteCodeDisplay?: string;
+  balance: number;
+  parentId: string | null;
+  agentStatus: string;
+  createdAt: string | null;
+  lastIp: string;
+  lastIpAt: string | null;
+  registeredViaInviteCode: string | null;
+  hasLoginPassword: boolean;
+  hasTradePassword: boolean;
+  securityQuestions: { questionId: string }[];
+};
+
+type UserEditFormState = {
+  nickname: string;
+  displayId8: string;
+  customerNo: string;
+  parentId: string;
+  agentStatus: string;
+  balanceMode: 'none' | 'delta' | 'set';
+  balanceValue: string;
+  newLoginPassword: string;
+  newLoginPasswordConfirm: string;
+  newTradePassword: string;
+  sec1Q: string;
+  sec1A: string;
+  sec2Q: string;
+  sec2A: string;
+  inviteCodeDisplay: string;
+  reason: string;
+};
+
+type SecurityPresetRow = { id: string; text: string };
+
 type BetOrderAdminRow = {
   id: string;
   game: string;
@@ -225,6 +264,19 @@ export function AdminConsolePage() {
   const [betGame, setBetGame] = useState('');
   const [betRows, setBetRows] = useState<BetOrderAdminRow[]>([]);
   const [financeBusy, setFinanceBusy] = useState(false);
+
+  const [userEditId, setUserEditId] = useState<string | null>(null);
+  const [userEditDetail, setUserEditDetail] = useState<AdminUserDetail | null>(null);
+  const [userEditForm, setUserEditForm] = useState<UserEditFormState | null>(null);
+  const [userEditSaving, setUserEditSaving] = useState(false);
+  const [secPresets, setSecPresets] = useState<SecurityPresetRow[]>([
+    { id: 'q1', text: '你的小学名字是什么？' },
+    { id: 'q2', text: '你最喜欢的颜色是什么？' },
+    { id: 'q3', text: '你的出生地是哪里？' },
+    { id: 'q4', text: '你最好的朋友名字是什么？' },
+  ]);
+  const [ledgerAction, setLedgerAction] = useState<null | { txId: string; mode: 'approve' | 'reject' }>(null);
+  const [ledgerReason, setLedgerReason] = useState('');
 
   const pageMode = useMemo(() => {
     if (location.pathname === '/admin/agents') return 'agents';
@@ -461,6 +513,168 @@ export function AdminConsolePage() {
     window.alert('代理信息已保存');
   }
 
+  useEffect(() => {
+    if (!userEditId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(buildApiUrl('/api/auth/security-question-presets'));
+        const j = (await res.json()) as { success?: boolean; list?: SecurityPresetRow[] };
+        if (!cancelled && j.success && Array.isArray(j.list) && j.list.length) {
+          setSecPresets(j.list);
+        }
+      } catch {
+        /* keep defaults */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userEditId]);
+
+  async function openUserEdit(id: string) {
+    setUserEditId(id);
+    setUserEditDetail(null);
+    setUserEditForm(null);
+    try {
+      const r = await adminFetch<{ success: boolean; data: AdminUserDetail }>(
+        `/api/admin/users/${encodeURIComponent(id)}/detail`,
+      );
+      const d = r.data;
+      setUserEditDetail(d);
+      const sq = d.securityQuestions || [];
+      setUserEditForm({
+        nickname: d.nickname,
+        displayId8: d.displayId8,
+        customerNo: String(d.customerNo ?? '').trim(),
+        parentId: d.parentId ?? '',
+        agentStatus: d.agentStatus === 'disabled' ? 'disabled' : 'active',
+        balanceMode: 'none',
+        balanceValue: '',
+        newLoginPassword: '',
+        newLoginPasswordConfirm: '',
+        newTradePassword: '',
+        sec1Q: sq[0]?.questionId || 'q1',
+        sec1A: '',
+        sec2Q: sq[1]?.questionId || 'q2',
+        sec2A: '',
+        inviteCodeDisplay: String(d.inviteCodeDisplay ?? ''),
+        reason: '',
+      });
+    } catch (e: unknown) {
+      window.alert(e instanceof Error ? e.message : '加载用户失败');
+      setUserEditId(null);
+    }
+  }
+
+  function closeUserEdit() {
+    setUserEditId(null);
+    setUserEditDetail(null);
+    setUserEditForm(null);
+  }
+
+  async function saveUserEdit() {
+    if (!userEditId || !userEditForm || !userEditDetail) return;
+    const f = userEditForm;
+    if (f.reason.trim().length < 2) {
+      window.alert('操作原因至少 2 个字');
+      return;
+    }
+    const body: Record<string, unknown> = {
+      reason: f.reason.trim(),
+      nickname: f.nickname.trim(),
+      displayId8: f.displayId8.trim(),
+      parentId: f.parentId.trim() || null,
+      agentStatus: f.agentStatus,
+    };
+    if (f.customerNo.trim()) {
+      const n = Number(f.customerNo.trim());
+      if (!Number.isFinite(n) || n < 1) {
+        window.alert('客户号须为正整数或留空表示不修改');
+        return;
+      }
+      body.customerNo = n;
+    } else {
+      body.customerNo = '';
+    }
+
+    if (f.balanceMode === 'delta') {
+      const d = Number(f.balanceValue);
+      if (!Number.isFinite(d) || d === 0) {
+        window.alert('上分/下分金额须为非 0 数字');
+        return;
+      }
+      body.balanceDelta = d;
+    } else if (f.balanceMode === 'set') {
+      const s = Number(f.balanceValue);
+      if (!Number.isFinite(s) || s < 0) {
+        window.alert('设定余额须为不小于 0 的数字');
+        return;
+      }
+      body.balanceSet = s;
+    }
+
+    if (f.newLoginPassword || f.newLoginPasswordConfirm) {
+      body.newLoginPassword = f.newLoginPassword;
+      body.newLoginPasswordConfirm = f.newLoginPasswordConfirm;
+    }
+    if (f.newTradePassword.trim()) {
+      body.newTradePassword = f.newTradePassword.trim();
+    }
+    if (f.sec1A.trim() && f.sec2A.trim()) {
+      body.security = [
+        { questionId: f.sec1Q, answer: f.sec1A.trim() },
+        { questionId: f.sec2Q, answer: f.sec2A.trim() },
+      ];
+    } else if (f.sec1A.trim() || f.sec2A.trim()) {
+      window.alert('修改密保需同时填写两条答案');
+      return;
+    }
+    const invTrim = f.inviteCodeDisplay.trim().toUpperCase();
+    const origInv = String(userEditDetail.inviteCodeDisplay ?? '')
+      .trim()
+      .toUpperCase();
+    if (invTrim && invTrim !== origInv) {
+      body.inviteCodeDisplay = invTrim;
+    }
+
+    setUserEditSaving(true);
+    try {
+      await adminFetch(`/api/admin/users/${encodeURIComponent(userEditId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      });
+      window.alert('已保存');
+      closeUserEdit();
+      void loadUsers(userListQ);
+    } catch (e: unknown) {
+      window.alert(e instanceof Error ? e.message : '保存失败');
+    } finally {
+      setUserEditSaving(false);
+    }
+  }
+
+  async function submitLedgerAudit() {
+    if (!ledgerAction) return;
+    if (ledgerReason.trim().length < 2) {
+      window.alert('原因至少 2 个字');
+      return;
+    }
+    const status = ledgerAction.mode === 'approve' ? '成功' : '已驳回';
+    try {
+      await adminFetch(`/api/admin/finance/ledger/${encodeURIComponent(ledgerAction.txId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, reason: ledgerReason.trim() }),
+      });
+      window.alert(ledgerAction.mode === 'approve' ? '已通过' : '已驳回并退回余额');
+      setLedgerAction(null);
+      setLedgerReason('');
+      void loadFinanceLedger();
+    } catch (e: unknown) {
+      window.alert(e instanceof Error ? e.message : '操作失败');
+    }
+  }
+
   const filteredAgents = useMemo(() => {
     const q = agentQ.trim().toLowerCase();
     return (agents || []).filter((a) => {
@@ -626,6 +840,7 @@ export function AdminConsolePage() {
                       <th>注册邀请码</th>
                       <th>直属下级数</th>
                       <th>注册时间</th>
+                      <th>操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -655,6 +870,11 @@ export function AdminConsolePage() {
                         </td>
                         <td>{u.directDownlineCount}</td>
                         <td>{new Date(u.createdAt).toLocaleString('zh-CN')}</td>
+                        <td>
+                          <button type="button" className="dh-admin-btn dh-admin-btn--ghost" onClick={() => void openUserEdit(u.id)}>
+                            编辑
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -757,6 +977,7 @@ export function AdminConsolePage() {
                         <th>类型</th>
                         <th>金额</th>
                         <th>状态</th>
+                        <th>操作</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -774,6 +995,36 @@ export function AdminConsolePage() {
                           <td>{r.type}</td>
                           <td>{r.amount}</td>
                           <td>{r.status}</td>
+                          <td>
+                            {r.ledgerType === 'withdraw' && r.status === '处理中' ? (
+                              <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                <button
+                                  type="button"
+                                  className="dh-admin-btn dh-admin-btn--primary"
+                                  style={{ padding: '4px 10px', fontSize: 12 }}
+                                  onClick={() => {
+                                    setLedgerReason('');
+                                    setLedgerAction({ txId: r.id, mode: 'approve' });
+                                  }}
+                                >
+                                  通过
+                                </button>
+                                <button
+                                  type="button"
+                                  className="dh-admin-btn dh-admin-btn--outline"
+                                  style={{ padding: '4px 10px', fontSize: 12 }}
+                                  onClick={() => {
+                                    setLedgerReason('');
+                                    setLedgerAction({ txId: r.id, mode: 'reject' });
+                                  }}
+                                >
+                                  驳回
+                                </button>
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1037,6 +1288,241 @@ export function AdminConsolePage() {
               </div>
             </div>
           ) : null}
+
+          {userEditId ? (
+            <div
+              className="dh-admin-modal-backdrop"
+              onClick={() => {
+                if (!userEditSaving) closeUserEdit();
+              }}
+              role="presentation"
+            >
+              <div
+                className="dh-admin-modal"
+                style={{ maxWidth: 560, maxHeight: '92vh', overflow: 'auto' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 style={{ marginTop: 0 }}>编辑用户</h3>
+                {!userEditForm || !userEditDetail ? (
+                  <p className="dh-admin-text-muted">加载中…</p>
+                ) : (
+                  <>
+                    <p className="dh-admin-text-muted" style={{ marginBottom: 12 }}>
+                      <code>{userEditDetail.id}</code> · 当前余额 ¥{userEditDetail.balance.toFixed(2)} · IP {userEditDetail.lastIp || '—'}
+                    </p>
+                    <label className="dh-admin-label">
+                      用户名
+                      <input
+                        className="dh-admin-input"
+                        value={userEditForm.nickname}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, nickname: e.target.value } : p))}
+                      />
+                    </label>
+                    <label className="dh-admin-label">
+                      展示 ID（8 位数字，可空）
+                      <input
+                        className="dh-admin-input"
+                        value={userEditForm.displayId8}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, displayId8: e.target.value } : p))}
+                      />
+                    </label>
+                    <label className="dh-admin-label">
+                      客户号（正整数，留空表示不修改）
+                      <input
+                        className="dh-admin-input"
+                        value={userEditForm.customerNo}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, customerNo: e.target.value } : p))}
+                      />
+                    </label>
+                    <label className="dh-admin-label">
+                      上级用户 ID（留空为无上级）
+                      <input
+                        className="dh-admin-input"
+                        value={userEditForm.parentId}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, parentId: e.target.value } : p))}
+                      />
+                    </label>
+                    <label className="dh-admin-label">
+                      账号状态
+                      <select
+                        className="dh-admin-input"
+                        value={userEditForm.agentStatus}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, agentStatus: e.target.value } : p))}
+                      >
+                        <option value="active">正常</option>
+                        <option value="disabled">已禁用</option>
+                      </select>
+                    </label>
+                    <label className="dh-admin-label">
+                      余额调整
+                      <select
+                        className="dh-admin-input"
+                        value={userEditForm.balanceMode}
+                        onChange={(e) =>
+                          setUserEditForm((p) =>
+                            p ? { ...p, balanceMode: e.target.value as UserEditFormState['balanceMode'] } : p,
+                          )
+                        }
+                      >
+                        <option value="none">不调整</option>
+                        <option value="delta">上分 / 下分（正数上分，负数下分）</option>
+                        <option value="set">直接设定余额</option>
+                      </select>
+                    </label>
+                    {userEditForm.balanceMode !== 'none' ? (
+                      <label className="dh-admin-label">
+                        {userEditForm.balanceMode === 'delta' ? '变动金额' : '目标余额'}
+                        <input
+                          className="dh-admin-input"
+                          type="number"
+                          step="0.01"
+                          value={userEditForm.balanceValue}
+                          onChange={(e) => setUserEditForm((p) => (p ? { ...p, balanceValue: e.target.value } : p))}
+                        />
+                      </label>
+                    ) : null}
+                    <label className="dh-admin-label">
+                      新登录密码（留空不改，改则至少 6 位）
+                      <input
+                        className="dh-admin-input"
+                        type="password"
+                        autoComplete="new-password"
+                        value={userEditForm.newLoginPassword}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, newLoginPassword: e.target.value } : p))}
+                      />
+                    </label>
+                    <label className="dh-admin-label">
+                      确认新登录密码
+                      <input
+                        className="dh-admin-input"
+                        type="password"
+                        autoComplete="new-password"
+                        value={userEditForm.newLoginPasswordConfirm}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, newLoginPasswordConfirm: e.target.value } : p))}
+                      />
+                    </label>
+                    <label className="dh-admin-label">
+                      新交易密码（6 位数字，留空不改）
+                      <input
+                        className="dh-admin-input"
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={userEditForm.newTradePassword}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, newTradePassword: e.target.value } : p))}
+                      />
+                    </label>
+                    <p className="dh-admin-text-muted" style={{ fontSize: 13 }}>
+                      密保：填写两条答案即重置密保；不填则不改。已设：登录密码 {userEditDetail.hasLoginPassword ? '是' : '否'} · 交易密码{' '}
+                      {userEditDetail.hasTradePassword ? '是' : '否'}
+                    </p>
+                    <label className="dh-admin-label">
+                      密保问题 1
+                      <select
+                        className="dh-admin-input"
+                        value={userEditForm.sec1Q}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, sec1Q: e.target.value } : p))}
+                      >
+                        {secPresets.map((pr) => (
+                          <option key={pr.id} value={pr.id}>
+                            {pr.text}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="dh-admin-label">
+                      答案 1
+                      <input
+                        className="dh-admin-input"
+                        value={userEditForm.sec1A}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, sec1A: e.target.value } : p))}
+                      />
+                    </label>
+                    <label className="dh-admin-label">
+                      密保问题 2
+                      <select
+                        className="dh-admin-input"
+                        value={userEditForm.sec2Q}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, sec2Q: e.target.value } : p))}
+                      >
+                        {secPresets.map((pr) => (
+                          <option key={`${pr.id}-2`} value={pr.id}>
+                            {pr.text}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="dh-admin-label">
+                      答案 2
+                      <input
+                        className="dh-admin-input"
+                        value={userEditForm.sec2A}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, sec2A: e.target.value } : p))}
+                      />
+                    </label>
+                    <label className="dh-admin-label">
+                      邀请码展示（修改为新码须不与全站冲突；留空或不变可不填）
+                      <input
+                        className="dh-admin-input"
+                        value={userEditForm.inviteCodeDisplay}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, inviteCodeDisplay: e.target.value } : p))}
+                      />
+                    </label>
+                    <label className="dh-admin-label">
+                      操作原因（必填，写入账本）
+                      <input
+                        className="dh-admin-input"
+                        value={userEditForm.reason}
+                        onChange={(e) => setUserEditForm((p) => (p ? { ...p, reason: e.target.value } : p))}
+                      />
+                    </label>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <button
+                        type="button"
+                        className="dh-admin-btn dh-admin-btn--primary"
+                        disabled={userEditSaving}
+                        onClick={() => void saveUserEdit()}
+                      >
+                        {userEditSaving ? '保存中…' : '保存'}
+                      </button>
+                      <button type="button" className="dh-admin-btn dh-admin-btn--ghost" disabled={userEditSaving} onClick={closeUserEdit}>
+                        取消
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {ledgerAction ? (
+            <div
+              className="dh-admin-modal-backdrop"
+              onClick={() => setLedgerAction(null)}
+              role="presentation"
+            >
+              <div className="dh-admin-modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+                <h3 style={{ marginTop: 0 }}>{ledgerAction.mode === 'approve' ? '通过提现' : '驳回提现'}</h3>
+                <p className="dh-admin-text-muted">流水 ID：{ledgerAction.txId}</p>
+                <label className="dh-admin-label">
+                  原因（至少 2 字）
+                  <input
+                    className="dh-admin-input"
+                    value={ledgerReason}
+                    onChange={(e) => setLedgerReason(e.target.value)}
+                  />
+                </label>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <button type="button" className="dh-admin-btn dh-admin-btn--primary" onClick={() => void submitLedgerAudit()}>
+                    确认
+                  </button>
+                  <button type="button" className="dh-admin-btn dh-admin-btn--ghost" onClick={() => setLedgerAction(null)}>
+                    取消
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </main>
     </div>
@@ -1044,11 +1530,135 @@ export function AdminConsolePage() {
 }
 
 /** ========== 客服管理 ========== */
+type SupportSessionRow = {
+  id: string;
+  userId: string;
+  userNickname: string;
+  status: string;
+  updatedAt: string;
+  adminUnread: number;
+  lastPreview: string;
+  lastRole: string;
+};
+
+type SupportMsgRow = { id: string; role: string; text: string; createdAt: string };
+
 export function AdminSupportPage() {
   const navigate = useNavigate();
-  const [chatSessions] = useState([
-    { id: '1', user: 'guest_001', lastMessage: '咨询账户问题', time: '刚刚', unread: 0, status: 'online' },
-  ]);
+  const [sessions, setSessions] = useState<SupportSessionRow[]>([]);
+  const [sessErr, setSessErr] = useState<string | null>(null);
+  const [selId, setSelId] = useState<string | null>(null);
+  const [msgs, setMsgs] = useState<SupportMsgRow[]>([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const lastIdRef = useRef('');
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const loadSessions = useCallback(async () => {
+    try {
+      const r = await adminFetch<{ success: boolean; list: SupportSessionRow[] }>('/api/admin/support/sessions');
+      setSessions(Array.isArray(r.list) ? r.list : []);
+      setSessErr(null);
+    } catch (e: unknown) {
+      setSessErr(e instanceof Error ? e.message : '加载失败');
+    }
+  }, []);
+
+  const loadMsgsFull = useCallback(async (sid: string) => {
+    const r = await adminFetch<{ success: boolean; messages: SupportMsgRow[] }>(
+      `/api/admin/support/sessions/${encodeURIComponent(sid)}/messages`,
+    );
+    if (r.success && Array.isArray(r.messages)) {
+      setMsgs(r.messages);
+      lastIdRef.current = r.messages.length ? r.messages[r.messages.length - 1].id : '';
+    }
+  }, []);
+
+  const pollAfter = useCallback(async () => {
+    if (!selId || !lastIdRef.current) return;
+    const qs = `?after=${encodeURIComponent(lastIdRef.current)}`;
+    const r = await adminFetch<{ success: boolean; messages: SupportMsgRow[] }>(
+      `/api/admin/support/sessions/${encodeURIComponent(selId)}/messages${qs}`,
+    );
+    if (r.success && Array.isArray(r.messages) && r.messages.length) {
+      setMsgs((prev) => {
+        const ids = new Set(prev.map((m) => m.id));
+        const add = r.messages.filter((m) => !ids.has(m.id));
+        if (!add.length) return prev;
+        const merged = [...prev, ...add];
+        lastIdRef.current = merged[merged.length - 1].id;
+        return merged;
+      });
+    }
+  }, [selId]);
+
+  useEffect(() => {
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!token) {
+      navigate('/admin/login', { replace: true });
+      return;
+    }
+    void loadSessions();
+    const id = window.setInterval(() => void loadSessions(), 8000);
+    return () => clearInterval(id);
+  }, [navigate, loadSessions]);
+
+  useEffect(() => {
+    if (!selId) {
+      setMsgs([]);
+      lastIdRef.current = '';
+      return;
+    }
+    void loadMsgsFull(selId);
+    const id = window.setInterval(() => void pollAfter(), 2800);
+    return () => clearInterval(id);
+  }, [selId, loadMsgsFull, pollAfter]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [msgs, selId]);
+
+  async function sendReply() {
+    if (!selId || !input.trim()) return;
+    setSending(true);
+    try {
+      await adminFetch(`/api/admin/support/sessions/${encodeURIComponent(selId)}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ text: input.trim() }),
+      });
+      setInput('');
+      const r = await adminFetch<{ success: boolean; messages: SupportMsgRow[] }>(
+        `/api/admin/support/sessions/${encodeURIComponent(selId)}/messages`,
+      );
+      if (r.success && Array.isArray(r.messages)) {
+        setMsgs(r.messages);
+        lastIdRef.current = r.messages.length ? r.messages[r.messages.length - 1].id : '';
+      }
+      void loadSessions();
+    } catch (e: unknown) {
+      window.alert(e instanceof Error ? e.message : '发送失败');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function setSessionStatus(st: 'open' | 'closed') {
+    if (!selId) return;
+    try {
+      await adminFetch(`/api/admin/support/sessions/${encodeURIComponent(selId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: st }),
+      });
+      void loadSessions();
+      void loadMsgsFull(selId);
+    } catch (e: unknown) {
+      window.alert(e instanceof Error ? e.message : '更新失败');
+    }
+  }
+
+  const active = sessions.find((s) => s.id === selId);
 
   return (
     <div className="dh-admin-page">
@@ -1063,29 +1673,151 @@ export function AdminSupportPage() {
 
       <main className="dh-admin-page__content">
         <div className="dh-admin-container">
-          <div className="dh-admin-card">
-            <h2 className="dh-admin-h2">
-              <MessageSquare className="dh-admin-biz-icon" size={18} strokeWidth={1.5} />
-              会话列表
-            </h2>
-            <p className="dh-admin-text-muted">完整客服后台可参考星彩 Socket 会话；大都汇可后续接入同一套接口。</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {chatSessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="dh-admin-card"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', padding: '1rem' }}
-                  onClick={() => window.alert(`打开与 ${session.user} 的对话`)}
-                >
-                  <div>
-                    <p style={{ fontWeight: 600 }}>{session.user}</p>
-                    <p className="dh-admin-text-muted" style={{ marginTop: 4 }}>
-                      {session.lastMessage}
-                    </p>
+          {sessErr ? <p className="dh-admin-error">{sessErr}</p> : null}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(0, 2fr)', gap: 16, alignItems: 'stretch' }}>
+            <div className="dh-admin-card" style={{ minHeight: 420 }}>
+              <h2 className="dh-admin-h2" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <MessageSquare className="dh-admin-biz-icon" size={18} strokeWidth={1.5} />
+                会话
+              </h2>
+              <button type="button" className="dh-admin-btn dh-admin-btn--ghost" style={{ marginBottom: 10 }} onClick={() => void loadSessions()}>
+                刷新列表
+              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 520, overflow: 'auto' }}>
+                {sessions.length === 0 ? (
+                  <p className="dh-admin-text-muted">暂无会话（用户打开前台客服后会自动出现）</p>
+                ) : (
+                  sessions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelId(s.id)}
+                      className="dh-admin-card"
+                      style={{
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        padding: '0.75rem 1rem',
+                        border: selId === s.id ? '2px solid var(--dh-admin-accent, #3b82f6)' : undefined,
+                        background: selId === s.id ? 'rgba(59,130,246,0.06)' : undefined,
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                        <span style={{ fontWeight: 600 }}>{s.userNickname || '用户'}</span>
+                        {s.adminUnread > 0 ? (
+                          <span
+                            style={{
+                              background: '#ef4444',
+                              color: '#fff',
+                              borderRadius: 999,
+                              padding: '0 7px',
+                              fontSize: 12,
+                              lineHeight: '20px',
+                            }}
+                          >
+                            {s.adminUnread}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="dh-admin-text-muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
+                        {s.lastPreview || '—'}
+                      </p>
+                      <p className="dh-admin-text-muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
+                        {s.status === 'closed' ? '已关闭' : '进行中'} · {new Date(s.updatedAt).toLocaleString('zh-CN')}
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="dh-admin-card" style={{ minHeight: 420, display: 'flex', flexDirection: 'column' }}>
+              {!selId ? (
+                <p className="dh-admin-text-muted" style={{ margin: 'auto', textAlign: 'center' }}>
+                  请选择左侧会话
+                </p>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                    <b>{active?.userNickname || '用户'}</b>
+                    <code className="dh-admin-text-muted">{active?.userId}</code>
+                    <span style={{ flex: 1 }} />
+                    {active?.status === 'closed' ? (
+                      <button type="button" className="dh-admin-btn dh-admin-btn--outline" onClick={() => void setSessionStatus('open')}>
+                        重新打开
+                      </button>
+                    ) : (
+                      <button type="button" className="dh-admin-btn dh-admin-btn--outline" onClick={() => void setSessionStatus('closed')}>
+                        结束会话
+                      </button>
+                    )}
                   </div>
-                  <span className="dh-admin-text-muted">{session.time}</span>
-                </div>
-              ))}
+                  <div
+                    ref={scrollRef}
+                    style={{
+                      flex: 1,
+                      overflow: 'auto',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 8,
+                      padding: 12,
+                      marginBottom: 10,
+                      background: 'rgba(0,0,0,0.15)',
+                    }}
+                  >
+                    {msgs.map((m) => {
+                      const isAdmin = m.role === 'admin';
+                      const isSys = m.role === 'system';
+                      return (
+                        <div
+                          key={m.id}
+                          style={{
+                            marginBottom: 10,
+                            display: 'flex',
+                            justifyContent: isAdmin ? 'flex-end' : 'flex-start',
+                          }}
+                        >
+                          <div
+                            style={{
+                              maxWidth: '85%',
+                              padding: '8px 12px',
+                              borderRadius: 10,
+                              fontSize: 14,
+                              lineHeight: 1.45,
+                              background: isSys
+                                ? 'rgba(148,163,184,0.2)'
+                                : isAdmin
+                                  ? 'rgba(59,130,246,0.35)'
+                                  : 'rgba(255,255,255,0.08)',
+                            }}
+                          >
+                            <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 4 }}>
+                              {isSys ? '系统' : isAdmin ? '客服' : '用户'} · {new Date(m.createdAt).toLocaleString('zh-CN')}
+                            </div>
+                            {m.text}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      className="dh-admin-input"
+                      style={{ flex: 1 }}
+                      placeholder="输入回复…"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          void sendReply();
+                        }
+                      }}
+                    />
+                    <button type="button" className="dh-admin-btn dh-admin-btn--primary" disabled={sending} onClick={() => void sendReply()}>
+                      {sending ? '发送中…' : '发送'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

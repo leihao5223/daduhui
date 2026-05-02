@@ -213,6 +213,41 @@ function listAllLedgerAdmin(store, opts = {}) {
   });
 }
 
+/** 管理端：处理「处理中」的提现流水（成功入账确认 / 驳回并退回余额） */
+function patchWithdrawLedgerAdmin(store, txId, newStatus, reason) {
+  ensureMeta(store);
+  const row = (store.ledger || []).find((x) => x.id === txId);
+  if (!row) return { error: '流水不存在' };
+  if (String(row.type) !== 'withdraw') return { error: '仅支持提现类流水' };
+  if (String(row.status) !== '处理中') return { error: '仅可处理状态为「处理中」的提现' };
+  const user = (store.users || []).find((u) => u.id === row.userId);
+  if (!user) return { error: '用户不存在' };
+  const rs = String(newStatus || '').trim();
+  const metaBase = row.meta && typeof row.meta === 'object' ? row.meta : {};
+  if (rs === '成功' || rs === '已完成') {
+    row.status = '成功';
+    row.meta = { ...metaBase, adminApprove: true, reason: String(reason || '').slice(0, 500) };
+    return { ok: true };
+  }
+  if (rs === '已驳回') {
+    const amt = Math.abs(Number(row.delta));
+    ensureUserFinance(user, store);
+    user.balance = Number((Number(user.balance) + amt).toFixed(2));
+    appendLedgerEntry(store, user.id, {
+      type: 'withdraw_refund',
+      title: '提现驳回退回',
+      delta: amt,
+      balanceAfter: user.balance,
+      status: '成功',
+      meta: { reason: String(reason || '').slice(0, 500), originalTx: txId },
+    });
+    row.status = '已驳回';
+    row.meta = { ...metaBase, adminReject: true, reason: String(reason || '').slice(0, 500) };
+    return { ok: true };
+  }
+  return { error: '目标状态须为「成功」或「已驳回」' };
+}
+
 module.exports = {
   ensureMeta,
   ensureUserFinance,
@@ -220,5 +255,6 @@ module.exports = {
   appendLedgerEntry,
   listWalletRecords,
   listAllLedgerAdmin,
+  patchWithdrawLedgerAdmin,
   shanghaiTodayYmd,
 };

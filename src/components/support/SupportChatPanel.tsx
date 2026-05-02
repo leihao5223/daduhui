@@ -1,12 +1,25 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { useSupportChat } from '../../context/SupportChatContext';
+import { apiGet, apiPost } from '../../api/http';
+import { getToken } from '../../lib/auth';
+
+type ServerMsg = { id: string; role: 'user' | 'admin' | 'system'; text: string; createdAt: string };
 
 interface Message {
   id: string;
   type: 'user' | 'agent' | 'system';
   content: string;
   timestamp: number;
+}
+
+function mapServer(m: ServerMsg): Message {
+  return {
+    id: m.id,
+    type: m.role === 'admin' ? 'agent' : m.role === 'system' ? 'system' : 'user',
+    content: m.text,
+    timestamp: new Date(m.createdAt).getTime(),
+  };
 }
 
 function HeadsetIcon() {
@@ -61,10 +74,12 @@ function clampFabOffset(x: number, y: number) {
 export const SupportChatPanel: React.FC = () => {
   const { isOpen, prefillMessage, autoSend, openChat, closeChat } = useSupportChat();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [bootErr, setBootErr] = useState<string | null>(null);
   const [fabOffset, setFabOffset] = useState(() =>
-    typeof window !== 'undefined' ? readStoredFabOffset() : { x: 0, y: 0 }
+    typeof window !== 'undefined' ? readStoredFabOffset() : { x: 0, y: 0 },
   );
   const fabDragRef = useRef<{
     pointerId: number;
@@ -75,68 +90,150 @@ export const SupportChatPanel: React.FC = () => {
   } | null>(null);
   const fabDidDragRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const pollRef = useRef<number | null>(null);
+  const lastIdRef = useRef<string>('');
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const mergeIncoming = useCallback((incoming: ServerMsg[]) => {
+    if (!incoming.length) return;
     setMessages((prev) => {
-      if (prev.length > 0) return prev;
-      return [
+      const map = new Map(prev.map((m) => [m.id, m]));
+      for (const sm of incoming) {
+        const m = mapServer(sm);
+        map.set(m.id, m);
+      }
+      return Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp);
+    });
+    const last = incoming[incoming.length - 1];
+    if (last) lastIdRef.current = last.id;
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+      pollRef.current = null;
+      return;
+    }
+    if (!getToken()) {
+      setBootErr('请先登录后再使用在线客服');
+      setMessages([
         {
-          id: 'welcome',
+          id: 'sys-login',
           type: 'system',
-          content: '欢迎使用大都汇客服系统，请问有什么可以帮助您的？',
+          content: '请先登录账号，以便客服关联您的账户与资金问题。',
           timestamp: Date.now(),
         },
-      ];
-    });
+      ]);
+      setSessionId(null);
+      return;
+    }
+    setBootErr(null);
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiPost<{ success?: boolean; sessionId?: string; messages?: ServerMsg[] }>(
+          '/api/me/support/session',
+          {},
+        );
+        if (cancelled) return;
+        if (!r.success || !r.sessionId) {
+          setBootErr('无法建立客服会话');
+          return;
+        }
+        setSessionId(r.sessionId);
+        const initial = Array.isArray(r.messages) ? r.messages : [];
+        if (initial.length) {
+          setMessages(initial.map(mapServer));
+          lastIdRef.current = initial[initial.length - 1].id;
+        } else {
+          setMessages([]);
+        }
+      } catch (e: unknown) {
+        if (!cancelled) setBootErr(e instanceof Error ? e.message : '连接失败');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !sessionId || !getToken()) return;
+    const poll = async () => {
+      try {
+        const after = lastIdRef.current;
+        const qs = after
+          ? `sessionId=${encodeURIComponent(sessionId)}&after=${encodeURIComponent(after)}`
+          : `sessionId=${encodeURIComponent(sessionId)}`;
+        const r = await apiGet<{ success?: boolean; messages?: ServerMsg[] }>(`/api/me/support/messages?${qs}`);
+        if (r.success && Array.isArray(r.messages) && r.messages.length) {
+          mergeIncoming(r.messages);
+        }
+      } catch {
+        /* 轮询失败忽略 */
+      }
+    };
+    void poll();
+    pollRef.current = window.setInterval(() => void poll(), 3000);
+    return () => {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    };
+  }, [isOpen, sessionId, mergeIncoming]);
 
   const handleSendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || sending) return;
-
-      const userMsg: Message = {
-        id: `user-${Date.now()}`,
+      if (!getToken()) return;
+      if (!sessionId) {
+        window.alert('会话未就绪，请稍后再试');
+        return;
+      }
+      const text = content.trim();
+      const optimistic: Message = {
+        id: `local-${Date.now()}`,
         type: 'user',
-        content: content.trim(),
+        content: text,
         timestamp: Date.now(),
       };
-
-      setMessages((prev) => [...prev, userMsg]);
+      setMessages((prev) => [...prev, optimistic]);
       setInput('');
       setSending(true);
-
-      window.setTimeout(() => {
-        const agentMsg: Message = {
-          id: `agent-${Date.now()}`,
-          type: 'agent',
-          content: '您好，已收到您的消息，客服专员正在处理，请稍候…',
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, agentMsg]);
+      try {
+        await apiPost('/api/me/support/messages', { sessionId, text });
+        const r = await apiGet<{ success?: boolean; messages?: ServerMsg[] }>(
+          `/api/me/support/messages?sessionId=${encodeURIComponent(sessionId)}`,
+        );
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+        if (r.success && Array.isArray(r.messages)) {
+          setMessages(r.messages.map(mapServer));
+          if (r.messages.length) lastIdRef.current = r.messages[r.messages.length - 1].id;
+        }
+      } catch (e: unknown) {
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+        window.alert(e instanceof Error ? e.message : '发送失败');
+      } finally {
         setSending(false);
-      }, 1000);
+      }
     },
-    [sending]
+    [sending, sessionId, mergeIncoming],
   );
 
   const handleSendMessageRef = useRef(handleSendMessage);
   handleSendMessageRef.current = handleSendMessage;
 
   useEffect(() => {
-    if (isOpen && prefillMessage && autoSend) {
-      setInput(prefillMessage);
+    if (isOpen && prefillMessage && autoSend && getToken() && sessionId) {
       const t = window.setTimeout(() => {
         void handleSendMessageRef.current(prefillMessage);
-      }, 100);
+      }, 120);
       return () => window.clearTimeout(t);
     }
-  }, [isOpen, prefillMessage, autoSend]);
+    return undefined;
+  }, [isOpen, prefillMessage, autoSend, sessionId]);
 
   useEffect(() => {
     const onResize = () => {
@@ -176,7 +273,7 @@ export const SupportChatPanel: React.FC = () => {
       };
       e.currentTarget.setPointerCapture(e.pointerId);
     },
-    [fabOffset.x, fabOffset.y]
+    [fabOffset.x, fabOffset.y],
   );
 
   const onFabPointerMove = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
@@ -218,8 +315,10 @@ export const SupportChatPanel: React.FC = () => {
       }
       openChat();
     },
-    [openChat]
+    [openChat],
   );
+
+  const canSend = Boolean(getToken() && sessionId && !bootErr);
 
   return (
     <>
@@ -233,10 +332,10 @@ export const SupportChatPanel: React.FC = () => {
             <div className="dx-support-panel__hd">
               <div>
                 <h2 className="dx-support-panel__title">在线客服</h2>
-                <p className="dx-support-panel__sub">大都汇 · 智能与人工服务</p>
+                <p className="dx-support-panel__sub">大都汇 · 人工客服</p>
                 <p className="dx-support-panel__sub dx-support-panel__sub--status">
                   <span className="dx-support-online-dot" aria-hidden />
-                  在线
+                  {sessionId ? '已连接' : bootErr ? '未连接' : '连接中…'}
                 </p>
               </div>
               <div className="dx-support-panel__hd-actions">
@@ -247,6 +346,9 @@ export const SupportChatPanel: React.FC = () => {
             </div>
 
             <div className="dx-support-panel__body">
+              {bootErr ? (
+                <p className="dx-support-msg dx-support-msg--sys">{bootErr}</p>
+              ) : null}
               {messages.map((msg) => {
                 if (msg.type === 'system') {
                   return (
@@ -262,10 +364,7 @@ export const SupportChatPanel: React.FC = () => {
                     className={['dx-support-row', mine ? 'dx-support-row--mine' : ''].filter(Boolean).join(' ')}
                   >
                     <div
-                      className={[
-                        'dx-support-bubble',
-                        mine ? 'dx-support-bubble--mine' : 'dx-support-bubble--staff',
-                      ]
+                      className={['dx-support-bubble', mine ? 'dx-support-bubble--mine' : 'dx-support-bubble--staff']
                         .filter(Boolean)
                         .join(' ')}
                     >
@@ -281,17 +380,16 @@ export const SupportChatPanel: React.FC = () => {
             <div className="dx-support-panel__ft">
               <form onSubmit={handleSubmit} className="dx-support-panel__row">
                 <input
-                  ref={inputRef}
                   className="dx-support-input"
                   type="text"
                   enterKeyHint="send"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="点击输入消息…"
-                  disabled={sending}
+                  placeholder={canSend ? '输入消息…' : '登录后可发消息'}
+                  disabled={sending || !canSend}
                   autoComplete="off"
                 />
-                <button type="submit" className="dx-support-send" disabled={sending || !input.trim()}>
+                <button type="submit" className="dx-support-send" disabled={sending || !canSend || !input.trim()}>
                   发送
                 </button>
               </form>

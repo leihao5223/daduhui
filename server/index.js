@@ -13,6 +13,8 @@ const canada28 = require('./canada28');
 const speedRacing = require('./speedRacing');
 const userReports = require('./userReports');
 const adminData = require('./adminData');
+const support = require('./support');
+const adminUserPatch = require('./adminUserPatch');
 
 const PORT = Number(process.env.PORT || 3301);
 /** 星彩式：X-Admin-Token 或环境变量，与 /api/admin/login 独立 */
@@ -90,6 +92,7 @@ function migrateStore() {
   canada28.ensureCanada28(store);
   speedRacing.ensureSpeed(store);
   ensureActivityArticles(store.cms);
+  support.ensureSupport(store);
   saveStore();
 }
 
@@ -742,6 +745,82 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /** ----- POST /api/me/support/session ----- */
+    if (req.method === 'POST' && p === '/api/me/support/session') {
+      const uid = authUserId(req);
+      if (!uid) {
+        json(res, 401, { success: false, message: '请先登录' });
+        return;
+      }
+      const user = userById(uid);
+      if (!user) {
+        json(res, 401, { success: false, message: '用户不存在' });
+        return;
+      }
+      support.ensureSupport(store);
+      const sess = support.getOrCreateSession(store, uid, user.nickname);
+      recordUserIp(user, req);
+      saveStore();
+      json(res, 200, { success: true, sessionId: sess.id, messages: sess.messages || [] });
+      return;
+    }
+
+    /** ----- GET /api/me/support/messages ----- */
+    if (req.method === 'GET' && p === '/api/me/support/messages') {
+      const uid = authUserId(req);
+      if (!uid) {
+        json(res, 401, { success: false, message: '请先登录' });
+        return;
+      }
+      const sid = url.searchParams.get('sessionId') || '';
+      const after = url.searchParams.get('after') || '';
+      const sess = support.findSessionById(store, sid);
+      if (!sess || sess.userId !== uid) {
+        json(res, 403, { success: false, message: '会话无效' });
+        return;
+      }
+      support.markUserRead(store, sess.id);
+      let msgs = Array.isArray(sess.messages) ? [...sess.messages] : [];
+      if (after) {
+        const idx = msgs.findIndex((m) => m.id === after);
+        msgs = idx >= 0 ? msgs.slice(idx + 1) : [];
+      } else {
+        msgs = msgs.slice(-400);
+      }
+      saveStore();
+      json(res, 200, { success: true, sessionId: sess.id, messages: msgs });
+      return;
+    }
+
+    /** ----- POST /api/me/support/messages ----- */
+    if (req.method === 'POST' && p === '/api/me/support/messages') {
+      const uid = authUserId(req);
+      if (!uid) {
+        json(res, 401, { success: false, message: '请先登录' });
+        return;
+      }
+      const body = await parseBody(req);
+      const sid = String(body.sessionId || '');
+      const text = String(body.text || '');
+      const sess = support.findSessionById(store, sid);
+      if (!sess || sess.userId !== uid) {
+        json(res, 403, { success: false, message: '会话无效' });
+        return;
+      }
+      if (sess.status === 'closed') {
+        json(res, 400, { success: false, message: '会话已关闭' });
+        return;
+      }
+      const msg = support.appendMessage(store, sess, 'user', text);
+      if (!msg) {
+        json(res, 400, { success: false, message: '消息不能为空' });
+        return;
+      }
+      saveStore();
+      json(res, 200, { success: true, message: msg });
+      return;
+    }
+
     /** ----- GET /api/activity/articles ----- */
     if (req.method === 'GET' && p === '/api/activity/articles') {
       ensureActivityArticles(store.cms);
@@ -1363,6 +1442,163 @@ const server = http.createServer(async (req, res) => {
         directDownlines: downlines,
       });
       return;
+    }
+
+    /** ----- GET /api/admin/support/sessions ----- */
+    if (req.method === 'GET' && p === '/api/admin/support/sessions') {
+      if (!requireAdmin(req, res)) return;
+      support.ensureSupport(store);
+      json(res, 200, { success: true, list: support.listSessionsForAdmin(store) });
+      return;
+    }
+
+    /** ----- GET /api/admin/support/sessions/:id/messages ----- */
+    {
+      const m = p.match(/^\/api\/admin\/support\/sessions\/([^/]+)\/messages$/);
+      if (req.method === 'GET' && m) {
+        if (!requireAdmin(req, res)) return;
+        const id = decodeURIComponent(m[1]);
+        const sess = support.findSessionById(store, id);
+        if (!sess) {
+          json(res, 404, { success: false, message: '会话不存在' });
+          return;
+        }
+        support.markAdminRead(store, id);
+        const after = url.searchParams.get('after') || '';
+        let msgs = [...(sess.messages || [])];
+        if (after) {
+          const idx = msgs.findIndex((x) => x.id === after);
+          msgs = idx >= 0 ? msgs.slice(idx + 1) : [];
+        } else {
+          msgs = msgs.slice(-400);
+        }
+        saveStore();
+        json(res, 200, {
+          success: true,
+          messages: msgs,
+          session: {
+            id: sess.id,
+            userId: sess.userId,
+            userNickname: sess.userNickname,
+            status: sess.status,
+          },
+        });
+        return;
+      }
+    }
+
+    /** ----- POST /api/admin/support/sessions/:id/messages ----- */
+    {
+      const m = p.match(/^\/api\/admin\/support\/sessions\/([^/]+)\/messages$/);
+      if (req.method === 'POST' && m) {
+        if (!requireAdmin(req, res)) return;
+        const id = decodeURIComponent(m[1]);
+        const sess = support.findSessionById(store, id);
+        if (!sess) {
+          json(res, 404, { success: false, message: '会话不存在' });
+          return;
+        }
+        const body = await parseBody(req);
+        const msg = support.appendMessage(store, sess, 'admin', String(body.text || ''));
+        if (!msg) {
+          json(res, 400, { success: false, message: '消息不能为空' });
+          return;
+        }
+        saveStore();
+        json(res, 200, { success: true, message: msg });
+        return;
+      }
+    }
+
+    /** ----- PATCH /api/admin/support/sessions/:id ----- */
+    {
+      const m = p.match(/^\/api\/admin\/support\/sessions\/([^/]+)$/);
+      if (req.method === 'PATCH' && m) {
+        if (!requireAdmin(req, res)) return;
+        const id = decodeURIComponent(m[1]);
+        const body = await parseBody(req);
+        const st = String(body.status || '').trim();
+        if (st === 'closed' || st === 'open') {
+          support.setSessionStatus(store, id, st);
+          saveStore();
+          json(res, 200, { success: true });
+          return;
+        }
+        json(res, 400, { success: false, message: 'status 须为 open 或 closed' });
+        return;
+      }
+    }
+
+    /** ----- GET /api/admin/users/:id/detail ----- */
+    {
+      const m = p.match(/^\/api\/admin\/users\/([^/]+)\/detail$/);
+      if (req.method === 'GET' && m) {
+        if (!requireAdmin(req, res)) return;
+        const id = decodeURIComponent(m[1]);
+        const u = userById(id);
+        if (!u) {
+          json(res, 404, { success: false, message: '用户不存在' });
+          return;
+        }
+        json(res, 200, { success: true, data: adminUserPatch.buildAdminUserDetail(store, u) });
+        return;
+      }
+    }
+
+    /** ----- PATCH /api/admin/users/:id ----- */
+    {
+      const m = p.match(/^\/api\/admin\/users\/([^/]+)$/);
+      if (req.method === 'PATCH' && m) {
+        if (!requireAdmin(req, res)) return;
+        const id = decodeURIComponent(m[1]);
+        const u = userById(id);
+        if (!u) {
+          json(res, 404, { success: false, message: '用户不存在' });
+          return;
+        }
+        const body = await parseBody(req);
+        const r = adminUserPatch.patchAdminUser(u, body, {
+          store,
+          hashPassword,
+          saveStore,
+          userById,
+          findUserByNickname,
+          codesForOwner,
+          normInviteCode,
+        });
+        if (r.error) {
+          json(res, 400, { success: false, message: r.error });
+          return;
+        }
+        recordUserIp(u, req);
+        saveStore();
+        json(res, 200, { success: true, data: adminUserPatch.buildAdminUserDetail(store, u) });
+        return;
+      }
+    }
+
+    /** ----- PATCH /api/admin/finance/ledger/:txId ----- */
+    {
+      const m = p.match(/^\/api\/admin\/finance\/ledger\/([^/]+)$/);
+      if (req.method === 'PATCH' && m) {
+        if (!requireAdmin(req, res)) return;
+        const txId = decodeURIComponent(m[1]);
+        const body = await parseBody(req);
+        const status = String(body.status || '').trim();
+        const reason = String(body.reason || '').trim();
+        if (reason.length < 2) {
+          json(res, 400, { success: false, message: '原因至少 2 个字' });
+          return;
+        }
+        const r = finance.patchWithdrawLedgerAdmin(store, txId, status, reason);
+        if (r.error) {
+          json(res, 400, { success: false, message: r.error });
+          return;
+        }
+        saveStore();
+        json(res, 200, { success: true });
+        return;
+      }
     }
 
     if (tryServeWebpackDist(req, res, p)) {
