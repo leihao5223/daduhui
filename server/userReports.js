@@ -98,7 +98,100 @@ function listBetOrders(store, userId, fromYmd, toYmd, limitRaw) {
   return out.slice(0, lim);
 }
 
+function userMatchesQuery(store, userId, qLower) {
+  if (!qLower) return true;
+  const u = (store.users || []).find((uu) => uu.id === userId);
+  if (!u) return String(userId || '').toLowerCase().includes(qLower);
+  const hay = [u.nickname, String(u.displayId8 || ''), String(u.customerNo || ''), u.id].join(' ').toLowerCase();
+  return hay.includes(qLower);
+}
+
+/** 管理端：全站注单（日区间 + 用户关键词 + 游戏） */
+function listAllBetOrdersAdmin(store, fromYmd, toYmd, limitRaw, qRaw, gameRaw) {
+  const lim = Math.min(Math.max(Number(limitRaw) || 800, 1), 3000);
+  const f = fromYmd || shanghaiTodayYmd();
+  const t = toYmd || f;
+  const q = String(qRaw || '').trim().toLowerCase();
+  const game = String(gameRaw || '').trim().toLowerCase();
+  const want = (key) => !game || game === 'all' || game === key;
+
+  hkMarkSix.ensureHk6(store);
+  canada28.ensureCanada28(store);
+  speedRacing.ensureSpeed(store);
+
+  const out = [];
+
+  if (want('hk6')) {
+    for (const b of store.hkMarkSix.bets || []) {
+      if (!userMatchesQuery(store, b.userId, q)) continue;
+      if (!inShanghaiDayRange(b.createdAt, f, t)) continue;
+      out.push({
+        id: b.id,
+        game: 'hk6',
+        gameLabel: '香港六合彩',
+        userId: b.userId,
+        period: b.period,
+        amount: Number(b.total) || 0,
+        status: b.status,
+        payout: b.payout != null ? Number(b.payout) : null,
+        createdAt: b.createdAt,
+        time: new Date(b.createdAt).toLocaleString('zh-CN'),
+        summary: summarizeLines(b.lines),
+      });
+    }
+  }
+  if (want('ca28')) {
+    for (const b of store.canada28.bets || []) {
+      if (!userMatchesQuery(store, b.userId, q)) continue;
+      if (!inShanghaiDayRange(b.createdAt, f, t)) continue;
+      out.push({
+        id: b.id,
+        game: 'ca28',
+        gameLabel: 'PC28',
+        userId: b.userId,
+        period: b.period,
+        amount: Number(b.total) || 0,
+        status: b.status,
+        payout: b.payout != null ? Number(b.payout) : null,
+        createdAt: b.createdAt,
+        time: new Date(b.createdAt).toLocaleString('zh-CN'),
+        summary: summarizeLines(b.lines),
+      });
+    }
+  }
+  if (want('speed')) {
+    for (const b of store.speedRacing.bets || []) {
+      if (!userMatchesQuery(store, b.userId, q)) continue;
+      if (!inShanghaiDayRange(b.createdAt, f, t)) continue;
+      out.push({
+        id: b.id,
+        game: 'speed',
+        gameLabel: '急速赛车',
+        userId: b.userId,
+        period: b.period,
+        amount: Number(b.total) || 0,
+        status: b.status,
+        payout: b.payout != null ? Number(b.payout) : null,
+        createdAt: b.createdAt,
+        time: new Date(b.createdAt).toLocaleString('zh-CN'),
+        summary: summarizeLines(b.lines),
+      });
+    }
+  }
+
+  for (const row of out) {
+    const u = (store.users || []).find((uu) => uu.id === row.userId);
+    row.nickname = u ? u.nickname : '—';
+    row.displayId8 = u ? String(u.displayId8 || '') : '';
+    row.customerNo = u ? String(u.customerNo || '') : '';
+  }
+
+  out.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return out.slice(0, lim);
+}
+
 module.exports = {
   listBetOrders,
+  listAllBetOrdersAdmin,
   shanghaiTodayYmd,
 };

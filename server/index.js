@@ -12,6 +12,7 @@ const hkMarkSix = require('./hkMarkSix');
 const canada28 = require('./canada28');
 const speedRacing = require('./speedRacing');
 const userReports = require('./userReports');
+const adminData = require('./adminData');
 
 const PORT = Number(process.env.PORT || 3301);
 /** 星彩式：X-Admin-Token 或环境变量，与 /api/admin/login 独立 */
@@ -284,6 +285,7 @@ function buildRelationOverview() {
       id: u.id,
       displayId8: String(u.displayId8 || ''),
       customerNo: String(u.customerNo ?? ''),
+      balance: Number(Number(u.balance || 0).toFixed(2)),
       lastIp: String(u.lastIp || ''),
       monthHk6Pnl: hkMarkSix.getUserHk6MonthPnl(store, u.id),
       nickname: u.nickname,
@@ -307,6 +309,7 @@ function filterRelationOverviewRows(rows, qRaw) {
       row.nickname,
       row.displayId8,
       row.customerNo,
+      row.balance,
       row.lastIp,
       row.parentNickname,
       row.registeredViaInviteCode,
@@ -339,7 +342,7 @@ function listAgentsForDaduhui({ q = '', status = '' } = {}) {
       status: st,
       teamSize,
       teamVolume: 0,
-      account: { available: 0, totalAsset: 0 },
+      account: { available: Number(Number(u.balance || 0).toFixed(2)), totalAsset: Number(Number(u.balance || 0).toFixed(2)) },
     };
   });
   const qv = String(q || '').trim().toLowerCase();
@@ -1099,18 +1102,67 @@ const server = http.createServer(async (req, res) => {
     /** ----- GET /api/admin/dashboard ----- */
     if (req.method === 'GET' && p === '/api/admin/dashboard') {
       if (!requireAdmin(req, res)) return;
-      const usersTotal = store.users.length;
+      const st = adminData.dashboardStats(store, sessions.size);
       json(res, 200, {
         success: true,
         data: {
-          usersTotal,
-          onlineNow: 0,
-          activeOrders: 0,
-          depositsToday: 0,
-          withdrawalsToday: 0,
-          ordersSettledToday: 0,
-          userCount: usersTotal,
+          usersTotal: st.usersTotal,
+          onlineNow: st.onlineNow,
+          activeOrders: st.activeOrders,
+          depositsToday: st.depositsToday,
+          withdrawalsToday: st.withdrawalsToday,
+          ordersSettledToday: st.ordersSettledToday,
+          userCount: st.usersTotal,
         },
+      });
+      return;
+    }
+
+    /** ----- GET /api/admin/finance/ledger（全站资金流水） ----- */
+    if (req.method === 'GET' && p === '/api/admin/finance/ledger') {
+      if (!requireAdmin(req, res)) return;
+      const from = url.searchParams.get('from') || '';
+      const to = url.searchParams.get('to') || '';
+      const typesRaw = url.searchParams.get('types') || '';
+      const types = typesRaw
+        ? typesRaw
+            .split(',')
+            .map((x) => x.trim())
+            .filter(Boolean)
+        : null;
+      const q = url.searchParams.get('q') || '';
+      const limitRaw = url.searchParams.get('limit');
+      json(res, 200, {
+        success: true,
+        list: finance.listAllLedgerAdmin(store, {
+          fromYmd: from,
+          toYmd: to,
+          types,
+          q,
+          limit: limitRaw != null && limitRaw !== '' ? Number(limitRaw) : undefined,
+        }),
+      });
+      return;
+    }
+
+    /** ----- GET /api/admin/finance/bet-orders（全站注单） ----- */
+    if (req.method === 'GET' && p === '/api/admin/finance/bet-orders') {
+      if (!requireAdmin(req, res)) return;
+      const from = url.searchParams.get('from') || userReports.shanghaiTodayYmd();
+      const to = url.searchParams.get('to') || from;
+      const q = url.searchParams.get('q') || '';
+      const game = url.searchParams.get('game') || '';
+      const limitRaw = url.searchParams.get('limit');
+      json(res, 200, {
+        success: true,
+        list: userReports.listAllBetOrdersAdmin(
+          store,
+          from,
+          to,
+          limitRaw != null && limitRaw !== '' ? Number(limitRaw) : undefined,
+          q,
+          game,
+        ),
       });
       return;
     }

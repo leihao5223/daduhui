@@ -122,6 +122,7 @@ type OverviewUser = {
   id: string;
   displayId8: string;
   customerNo: string;
+  balance?: number;
   lastIp: string;
   monthHk6Pnl: number;
   nickname: string;
@@ -133,6 +134,40 @@ type OverviewUser = {
 };
 
 type ActivityArticleRow = { id: string; title: string; body: string; updatedAt?: string | null };
+
+type LedgerAdminRow = {
+  id: string;
+  userId: string;
+  nickname: string;
+  displayId8: string;
+  customerNo: string;
+  time: string;
+  type: string;
+  amount: string;
+  status: string;
+  ledgerType: string;
+};
+
+type BetOrderAdminRow = {
+  id: string;
+  game: string;
+  gameLabel: string;
+  userId: string;
+  nickname: string;
+  displayId8: string;
+  customerNo: string;
+  period: string;
+  amount: number;
+  status: string;
+  payout: number | null;
+  time: string;
+  summary: string;
+};
+
+function adminTodayYmd(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 /** ========== 管理控制台（布局对齐星彩 AdminConsolePage，数据为大都汇） ========== */
 export function AdminConsolePage() {
@@ -178,6 +213,18 @@ export function AdminConsolePage() {
     { id: 'activity-2', title: '', body: '', updatedAt: null },
     { id: 'activity-3', title: '', body: '', updatedAt: null },
   ]);
+
+  const [finFrom, setFinFrom] = useState(adminTodayYmd);
+  const [finTo, setFinTo] = useState(adminTodayYmd);
+  const [finQ, setFinQ] = useState('');
+  const [finLedgerTypes, setFinLedgerTypes] = useState('deposit,withdraw');
+  const [ledgerRows, setLedgerRows] = useState<LedgerAdminRow[]>([]);
+  const [betFrom, setBetFrom] = useState(adminTodayYmd);
+  const [betTo, setBetTo] = useState(adminTodayYmd);
+  const [betQ, setBetQ] = useState('');
+  const [betGame, setBetGame] = useState('');
+  const [betRows, setBetRows] = useState<BetOrderAdminRow[]>([]);
+  const [financeBusy, setFinanceBusy] = useState(false);
 
   const pageMode = useMemo(() => {
     if (location.pathname === '/admin/agents') return 'agents';
@@ -284,6 +331,30 @@ export function AdminConsolePage() {
     setAgents(Array.isArray(r.list) ? r.list : []);
   }, []);
 
+  const loadFinanceLedger = useCallback(async () => {
+    const qs = new URLSearchParams({
+      from: finFrom,
+      to: finTo,
+      q: finQ.trim(),
+      limit: '1500',
+    });
+    if (finLedgerTypes.trim()) qs.set('types', finLedgerTypes.trim());
+    const r = await adminFetch<{ success: boolean; list: LedgerAdminRow[] }>(`/api/admin/finance/ledger?${qs}`);
+    setLedgerRows(Array.isArray(r.list) ? r.list : []);
+  }, [finFrom, finTo, finQ, finLedgerTypes]);
+
+  const loadFinanceBetOrders = useCallback(async () => {
+    const qs = new URLSearchParams({
+      from: betFrom,
+      to: betTo,
+      q: betQ.trim(),
+      limit: '1500',
+    });
+    if (betGame.trim()) qs.set('game', betGame.trim());
+    const r = await adminFetch<{ success: boolean; list: BetOrderAdminRow[] }>(`/api/admin/finance/bet-orders?${qs}`);
+    setBetRows(Array.isArray(r.list) ? r.list : []);
+  }, [betFrom, betTo, betQ, betGame]);
+
   useEffect(() => {
     const token = localStorage.getItem(ADMIN_TOKEN_KEY);
     if (!token) {
@@ -298,6 +369,29 @@ export function AdminConsolePage() {
       void loadPolicy();
     }
   }, [navigate, pageMode, loadBase, loadAgents, loadPolicy]);
+
+  useEffect(() => {
+    if (pageMode !== 'winloss') return;
+    let cancelled = false;
+    (async () => {
+      setFinanceBusy(true);
+      setError(null);
+      try {
+        await Promise.all([loadFinanceLedger(), loadFinanceBetOrders()]);
+      } catch (e: unknown) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : '财务报表加载失败');
+          setLedgerRows([]);
+          setBetRows([]);
+        }
+      } finally {
+        if (!cancelled) setFinanceBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pageMode, loadFinanceLedger, loadFinanceBetOrders]);
 
   useEffect(() => {
     if (pageMode !== 'users') return;
@@ -525,6 +619,7 @@ export function AdminConsolePage() {
                       <th>用户</th>
                       <th>展示 ID（8 位）</th>
                       <th>客户号</th>
+                      <th>余额</th>
                       <th>最近 IP</th>
                       <th>当月港彩盈亏</th>
                       <th>上级</th>
@@ -547,6 +642,7 @@ export function AdminConsolePage() {
                         <td>
                           <code>{u.customerNo || '—'}</code>
                         </td>
+                        <td>¥{typeof u.balance === 'number' ? u.balance.toFixed(2) : '—'}</td>
                         <td>
                           <code>{u.lastIp || '—'}</code>
                         </td>
@@ -568,42 +664,204 @@ export function AdminConsolePage() {
           )}
 
           {pageMode === 'winloss' && (
-            <div className="dh-admin-card">
-              <h2 className="dh-admin-h2">输赢报表（代理线）</h2>
-              <p className="dh-admin-text-muted">大都汇当前无下单账本聚合；下列为代理团队统计字段。</p>
-              <div className="dh-admin-table-wrap">
-                <table className="dh-admin-table">
-                  <thead>
-                    <tr>
-                      <th>账号</th>
-                      <th>代理码</th>
-                      <th>团队人数</th>
-                      <th>团队流水</th>
-                      <th>下单笔数</th>
-                      <th>盈亏</th>
-                      <th>回水</th>
-                      <th>实际盈亏</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAgents.map((a) => (
-                      <tr key={a.id}>
-                        <td>
-                          {a.id}/{a.nickname}
-                        </td>
-                        <td>{a.agentCode || '—'}</td>
-                        <td>{a.teamSize}</td>
-                        <td>¥{Number(a.teamVolume || 0).toFixed(2)}</td>
-                        <td>—</td>
-                        <td>—</td>
-                        <td>—</td>
-                        <td>—</td>
+            <>
+              <div className="dh-admin-card" style={{ marginBottom: '1.25rem' }}>
+                <h2 className="dh-admin-h2">代理线概览</h2>
+                <p className="dh-admin-text-muted">团队人数、账户余额（与前台个人中心一致）；团队流水等细账可后续接账本。</p>
+                <div className="dh-admin-table-wrap">
+                  <table className="dh-admin-table">
+                    <thead>
+                      <tr>
+                        <th>账号</th>
+                        <th>代理码</th>
+                        <th>团队人数</th>
+                        <th>余额</th>
+                        <th>团队流水</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filteredAgents.map((a) => (
+                        <tr key={a.id}>
+                          <td>
+                            {a.id}/{a.nickname}
+                          </td>
+                          <td>{a.agentCode || '—'}</td>
+                          <td>{a.teamSize}</td>
+                          <td>¥{Number(a.account?.available ?? 0).toFixed(2)}</td>
+                          <td>¥{Number(a.teamVolume || 0).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+
+              <div className="dh-admin-card" style={{ marginBottom: '1.25rem' }}>
+                <h2 className="dh-admin-h2">全站资金流水（充值 / 提现 / 派彩等）</h2>
+                <p className="dh-admin-text-muted">按上海自然日筛选；types 逗号分隔，如 deposit,withdraw 或留空表示全部类型。</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 12, alignItems: 'flex-end' }}>
+                  <label className="dh-admin-label" style={{ margin: 0 }}>
+                    开始
+                    <input className="dh-admin-input" type="date" value={finFrom} onChange={(e) => setFinFrom(e.target.value)} />
+                  </label>
+                  <label className="dh-admin-label" style={{ margin: 0 }}>
+                    结束
+                    <input className="dh-admin-input" type="date" value={finTo} onChange={(e) => setFinTo(e.target.value)} />
+                  </label>
+                  <label className="dh-admin-label" style={{ margin: 0, flex: '1 1 180px' }}>
+                    用户筛选
+                    <input
+                      className="dh-admin-input"
+                      placeholder="昵称 / 展示ID / 客户号"
+                      value={finQ}
+                      onChange={(e) => setFinQ(e.target.value)}
+                    />
+                  </label>
+                  <label className="dh-admin-label" style={{ margin: 0, flex: '1 1 200px' }}>
+                    ledger types
+                    <input
+                      className="dh-admin-input"
+                      placeholder="deposit,withdraw 或留空=全部"
+                      value={finLedgerTypes}
+                      onChange={(e) => setFinLedgerTypes(e.target.value)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="dh-admin-btn dh-admin-btn--primary"
+                    onClick={() => {
+                      void (async () => {
+                        setFinanceBusy(true);
+                        setError(null);
+                        try {
+                          await loadFinanceLedger();
+                        } catch (e: unknown) {
+                          setError(e instanceof Error ? e.message : '资金流水加载失败');
+                        } finally {
+                          setFinanceBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    查询流水
+                  </button>
+                </div>
+                {financeBusy ? <p className="dh-admin-text-muted">加载中…</p> : null}
+                <div className="dh-admin-table-wrap">
+                  <table className="dh-admin-table">
+                    <thead>
+                      <tr>
+                        <th>时间</th>
+                        <th>用户</th>
+                        <th>展示ID</th>
+                        <th>类型</th>
+                        <th>金额</th>
+                        <th>状态</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledgerRows.map((r) => (
+                        <tr key={r.id}>
+                          <td>{r.time}</td>
+                          <td>
+                            {r.nickname}
+                            <br />
+                            <span className="dh-admin-text-muted">{r.userId}</span>
+                          </td>
+                          <td>
+                            <code>{r.displayId8 || '—'}</code>
+                          </td>
+                          <td>{r.type}</td>
+                          <td>{r.amount}</td>
+                          <td>{r.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="dh-admin-card">
+                <h2 className="dh-admin-h2">全站游戏注单</h2>
+                <p className="dh-admin-text-muted">港彩 / PC28 / 急速赛车；与前台「订单明细」同一套合并规则。</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 12, alignItems: 'flex-end' }}>
+                  <label className="dh-admin-label" style={{ margin: 0 }}>
+                    开始
+                    <input className="dh-admin-input" type="date" value={betFrom} onChange={(e) => setBetFrom(e.target.value)} />
+                  </label>
+                  <label className="dh-admin-label" style={{ margin: 0 }}>
+                    结束
+                    <input className="dh-admin-input" type="date" value={betTo} onChange={(e) => setBetTo(e.target.value)} />
+                  </label>
+                  <label className="dh-admin-label" style={{ margin: 0, flex: '1 1 160px' }}>
+                    用户筛选
+                    <input className="dh-admin-input" placeholder="昵称 / ID" value={betQ} onChange={(e) => setBetQ(e.target.value)} />
+                  </label>
+                  <label className="dh-admin-label" style={{ margin: 0 }}>
+                    游戏
+                    <select className="dh-admin-input" value={betGame} onChange={(e) => setBetGame(e.target.value)}>
+                      <option value="">全部</option>
+                      <option value="hk6">香港六合彩</option>
+                      <option value="ca28">PC28</option>
+                      <option value="speed">急速赛车</option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="dh-admin-btn dh-admin-btn--primary"
+                    onClick={() => {
+                      void (async () => {
+                        setFinanceBusy(true);
+                        setError(null);
+                        try {
+                          await loadFinanceBetOrders();
+                        } catch (e: unknown) {
+                          setError(e instanceof Error ? e.message : '注单加载失败');
+                        } finally {
+                          setFinanceBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    查询注单
+                  </button>
+                </div>
+                <div className="dh-admin-table-wrap">
+                  <table className="dh-admin-table">
+                    <thead>
+                      <tr>
+                        <th>时间</th>
+                        <th>游戏</th>
+                        <th>用户</th>
+                        <th>期号</th>
+                        <th>金额</th>
+                        <th>派彩</th>
+                        <th>状态</th>
+                        <th>摘要</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {betRows.map((r) => (
+                        <tr key={`${r.game}-${r.id}`}>
+                          <td>{r.time}</td>
+                          <td>{r.gameLabel}</td>
+                          <td>
+                            {r.nickname}
+                            <br />
+                            <span className="dh-admin-text-muted">{r.userId}</span>
+                          </td>
+                          <td>{r.period}</td>
+                          <td>¥{Number(r.amount).toFixed(2)}</td>
+                          <td>{r.payout != null ? `¥${Number(r.payout).toFixed(2)}` : '—'}</td>
+                          <td>{r.status}</td>
+                          <td style={{ maxWidth: 220, wordBreak: 'break-all' }}>{r.summary}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
 
           {pageMode === 'agents' && (

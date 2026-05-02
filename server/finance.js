@@ -154,11 +154,71 @@ function listWalletRecords(store, userId, opts = {}) {
   }));
 }
 
+/** 管理端：全站资金流水（可按日、类型、用户关键词筛） */
+function listAllLedgerAdmin(store, opts = {}) {
+  ensureMeta(store);
+  const limit = Math.min(Math.max(Number(opts.limit) || 500, 1), 3000);
+  let rows = [...(store.ledger || [])];
+  const types =
+    Array.isArray(opts.types) && opts.types.length
+      ? opts.types.map((x) => String(x || '').trim()).filter(Boolean)
+      : null;
+  if (types && types.length) {
+    rows = rows.filter((x) => types.includes(String(x.type || '')));
+  }
+  const fromYmd = String(opts.fromYmd || '').trim();
+  const toYmd = String(opts.toYmd || '').trim();
+  const applyRange = /^\d{4}-\d{2}-\d{2}$/.test(fromYmd) || /^\d{4}-\d{2}-\d{2}$/.test(toYmd);
+  if (applyRange) {
+    const fUse = /^\d{4}-\d{2}-\d{2}$/.test(fromYmd) ? fromYmd : /^\d{4}-\d{2}-\d{2}$/.test(toYmd) ? toYmd : shanghaiTodayYmd();
+    let tUse = /^\d{4}-\d{2}-\d{2}$/.test(toYmd) ? toYmd : fUse;
+    if (tUse < fUse) tUse = fUse;
+    const rangeStart = Date.parse(`${fUse}T00:00:00+08:00`);
+    const rangeEnd = Date.parse(`${tUse}T23:59:59.999+08:00`);
+    if (Number.isFinite(rangeStart) && Number.isFinite(rangeEnd)) {
+      rows = rows.filter((x) => {
+        const ts = new Date(x.createdAt).getTime();
+        return ts >= rangeStart && ts <= rangeEnd;
+      });
+    }
+  }
+  const q = String(opts.q || '').trim().toLowerCase();
+  if (q) {
+    rows = rows.filter((x) => {
+      const u = (store.users || []).find((uu) => uu.id === x.userId);
+      if (!u) return String(x.userId || '').toLowerCase().includes(q);
+      ensureUserFinance(u, store);
+      const hay = [u.nickname, String(u.displayId8 || ''), String(u.customerNo || ''), u.id].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  rows = rows.slice(0, limit);
+  return rows.map((r) => {
+    const u = (store.users || []).find((uu) => uu.id === r.userId);
+    const nick = u ? u.nickname : '—';
+    if (u) ensureUserFinance(u, store);
+    return {
+      id: r.id,
+      userId: r.userId,
+      nickname: nick,
+      displayId8: u ? String(u.displayId8 || '') : '',
+      customerNo: u ? String(u.customerNo || '') : '',
+      time: new Date(r.createdAt).toLocaleString('zh-CN'),
+      type: r.title || r.type,
+      amount: `${r.delta >= 0 ? '+' : ''}${Number(r.delta).toFixed(2)}`,
+      status: r.status,
+      ledgerType: String(r.type || ''),
+    };
+  });
+}
+
 module.exports = {
   ensureMeta,
   ensureUserFinance,
   buildMeSummary,
   appendLedgerEntry,
   listWalletRecords,
+  listAllLedgerAdmin,
   shanghaiTodayYmd,
 };
