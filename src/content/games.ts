@@ -10,10 +10,10 @@ export const gamesContent = {
     title: '香港六合彩',
     subtitleLoading: '正在同步状态…',
     statusApiError: '无法连接开奖服务（请检查 /api 是否反代到 Node 后端，或网络是否异常）',
-    syncStuckHint: '暂无开奖记录，请稍后再试或联系管理员检查开奖同步。',
+    syncStuckHint: '暂无开奖记录，请稍后再试或联系管理员检查数据同步。',
     syncFailed: (code: string) =>
       code === 'fetch_failed'
-        ? '同步失败：无法连接开奖源（请检查网络或稍后再试）'
+        ? '同步失败：暂时无法连接同步服务（请检查网络或稍后再试）'
         : code === 'period_not_newer'
           ? '同步异常：期号与数据源不一致，请联系管理员处理'
           : `同步失败（${code}）`,

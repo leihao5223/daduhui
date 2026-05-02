@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const rules = require('./canada28Rules');
 const finance = require('./finance');
 const canada28Sync = require('./canada28Sync');
+const ca28SyncConfig = require('./ca28SyncConfig');
 
 const CYCLE_SEC = Number(process.env.CA28_CYCLE_SEC || 210); // 3.5 分钟
 
@@ -141,7 +142,7 @@ async function refreshDraws(store, saveStore) {
   ensureCanada28(store);
   maybeAdvanceIntervalDraw(store, saveStore, settleBetsForDraw);
 
-  const hasUrl = (process.env.CA28_SYNC_URL || '').trim();
+  const hasUrl = ca28SyncConfig.remoteJsonUrl();
   if (process.env.CA28_EXTERNAL_SYNC !== '0' && hasUrl) {
     const r = await canada28Sync.tryIngestExternalDraw(store, saveStore, settleBetsForDraw);
     if (r.error === 'fetch_failed' && store.canada28.draws.length === 0) {

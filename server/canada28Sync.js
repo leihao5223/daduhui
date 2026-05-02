@@ -1,9 +1,9 @@
 /**
  * Ingest remote draws from configured JSON HTTP endpoint.
  */
+const ca28SyncConfig = require('./ca28SyncConfig');
 
 let lastAttemptMs = 0;
-const MIN_INTERVAL_MS = Number(process.env.CA28_SYNC_MIN_MS || 8000);
 
 function parseJsonFromBody(raw) {
   if (raw == null) return null;
@@ -24,7 +24,7 @@ async function fetchJsonUrl(url, timeoutMs = 12000) {
       signal: ac.signal,
       headers: {
         Accept: 'application/json,*/*',
-        'User-Agent': process.env.CA28_SYNC_UA || 'Mozilla/5.0 (compatible; SyncClient/1.0)',
+        'User-Agent': ca28SyncConfig.syncUserAgent(),
       },
     });
     if (!res.ok) return null;
@@ -82,12 +82,13 @@ async function tryIngestExternalDraw(store, saveStore, settleFn) {
   if (process.env.CA28_EXTERNAL_SYNC === '0') {
     return { updated: false };
   }
-  const url = (process.env.CA28_SYNC_URL || '').trim();
+  const url = ca28SyncConfig.remoteJsonUrl();
   if (!url) {
     return { updated: false, error: 'no_sync_url' };
   }
   const now = Date.now();
-  if (now - lastAttemptMs < MIN_INTERVAL_MS) {
+  const minMs = ca28SyncConfig.minIntervalMs();
+  if (now - lastAttemptMs < minMs) {
     return { updated: false };
   }
   lastAttemptMs = now;
