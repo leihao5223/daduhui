@@ -4,6 +4,9 @@ export const layoutContent = {
   logoAlt: '大都汇',
   login: '登录',
   register: '注册',
+  headerUserId: '客户号',
+  headerBalance: '余额',
+  headerUserLoading: '加载中…',
   headerTabs: [
     { id: 'home', label: '首页', icon: 'fa-home' as const, path: '/' },
     { id: 'recharge', label: '充值', icon: 'fa-wallet' as const, path: '/deposit' },

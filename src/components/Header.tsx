@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DADUHUI_LOGO_URL } from '../branding';
 import { useSupportChat } from '../context/SupportChatContext';
 import { layoutContent } from '../content/layout';
 import { STORAGE_KEYS } from '../config/constants';
+import { getToken, isAuthenticated, logout } from '../lib/auth';
+import { apiGet } from '../api/http';
 
 function activePrimaryTab(pathname: string, tabs: typeof layoutContent.headerTabs): string {
   const path = pathname.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
@@ -15,6 +17,12 @@ function activePrimaryTab(pathname: string, tabs: typeof layoutContent.headerTab
   return '';
 }
 
+type MeSummaryData = {
+  customerNo?: string;
+  available?: number;
+  totalAsset?: number;
+};
+
 const Header: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -22,6 +30,66 @@ const Header: React.FC = () => {
   const tabs = layoutContent.headerTabs;
   const primaryActive = activePrimaryTab(location.pathname, tabs);
   const agentActive = location.pathname.startsWith('/agent');
+
+  const [loggedIn, setLoggedIn] = useState(() => isAuthenticated());
+  const [userStrip, setUserStrip] = useState<{ customerNo: string; balance: number } | null>(null);
+
+  useEffect(() => {
+    function syncLogin() {
+      setLoggedIn(isAuthenticated());
+    }
+    window.addEventListener('auth-changed', syncLogin);
+    window.addEventListener('user-logout', syncLogin);
+    return () => {
+      window.removeEventListener('auth-changed', syncLogin);
+      window.removeEventListener('user-logout', syncLogin);
+    };
+  }, []);
+
+  const fetchUserStrip = useCallback(async () => {
+    if (!getToken()) {
+      setUserStrip(null);
+      return;
+    }
+    try {
+      const r = await apiGet<{ success?: boolean; data?: MeSummaryData }>('/api/me/summary');
+      if (r.success && r.data && r.data.customerNo != null) {
+        const bal =
+          typeof r.data.available === 'number'
+            ? r.data.available
+            : typeof r.data.totalAsset === 'number'
+              ? r.data.totalAsset
+              : 0;
+        setUserStrip({ customerNo: String(r.data.customerNo), balance: bal });
+        return;
+      }
+      setUserStrip(null);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '';
+      if (/401|请先登录|Unauthorized/i.test(msg)) {
+        logout();
+        setUserStrip(null);
+        return;
+      }
+      setUserStrip(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!loggedIn) {
+      setUserStrip(null);
+      return;
+    }
+    void fetchUserStrip();
+  }, [loggedIn, fetchUserStrip]);
+
+  useEffect(() => {
+    function onFocus() {
+      if (isAuthenticated()) void fetchUserStrip();
+    }
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchUserStrip]);
 
   return (
     <header className="header">
@@ -31,23 +99,42 @@ const Header: React.FC = () => {
           <span className="brand-name-glass">{layoutContent.brandName}</span>
         </div>
         <div className="header-actions">
-          <button type="button" className="btn-login" onClick={() => navigate('/login')}>
-            {layoutContent.login}
-          </button>
-          <button
-            type="button"
-            className="btn-register"
-            onClick={() => {
-              try {
-                const inv = sessionStorage.getItem(STORAGE_KEYS.pendingInvite);
-                navigate(inv ? `/register?invite=${encodeURIComponent(inv)}` : '/register');
-              } catch {
-                navigate('/register');
-              }
-            }}
-          >
-            {layoutContent.register}
-          </button>
+          {loggedIn ? (
+            <button
+              type="button"
+              className="header-user-strip"
+              onClick={() => navigate('/profile')}
+              aria-label="进入个人中心"
+            >
+              <span className="header-user-strip__id">
+                {layoutContent.headerUserId} {userStrip?.customerNo ?? '—'}
+              </span>
+              <span className="header-user-strip__balance">
+                {layoutContent.headerBalance}{' '}
+                {userStrip ? `¥${userStrip.balance.toFixed(2)}` : layoutContent.headerUserLoading}
+              </span>
+            </button>
+          ) : (
+            <>
+              <button type="button" className="btn-login" onClick={() => navigate('/login')}>
+                {layoutContent.login}
+              </button>
+              <button
+                type="button"
+                className="btn-register"
+                onClick={() => {
+                  try {
+                    const inv = sessionStorage.getItem(STORAGE_KEYS.pendingInvite);
+                    navigate(inv ? `/register?invite=${encodeURIComponent(inv)}` : '/register');
+                  } catch {
+                    navigate('/register');
+                  }
+                }}
+              >
+                {layoutContent.register}
+              </button>
+            </>
+          )}
         </div>
       </div>
       <nav className="nav-tabs">

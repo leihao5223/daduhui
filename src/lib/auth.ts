@@ -12,6 +12,7 @@ export function getToken(): string | null {
 export function setToken(token: string): void {
   try {
     localStorage.setItem(TOKEN_KEY, token);
+    window.dispatchEvent(new CustomEvent('auth-changed'));
   } catch {
     /* ignore */
   }
@@ -20,6 +21,7 @@ export function setToken(token: string): void {
 export function clearToken(): void {
   try {
     localStorage.removeItem(TOKEN_KEY);
+    window.dispatchEvent(new CustomEvent('auth-changed'));
   } catch {
     /* ignore */
   }
