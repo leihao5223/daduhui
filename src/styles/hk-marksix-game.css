@@ -1,8 +1,8 @@
 /* 香港六合彩全屏下注页 — 五段式布局，下注区 min-height:0 内滚动 */
 
 .hk6-game {
-  /* 与固定底栏实际高度对齐，避免下注区与「下注总额」条之间大块留白 */
-  --hk6-dock-reserve: calc(8.1rem + env(safe-area-inset-bottom, 0px));
+  /* 与固定底栏（row4+row5）高度对齐；安全区只加一次，避免与 --hk6-dock-reserve 重复叠加出假空白 */
+  --hk6-dock-reserve: 8.05rem;
   min-height: 100dvh;
   min-height: 100svh;
   height: 100dvh;

@@ -134,7 +134,7 @@ const QUICK_STAKES = [10, 20, 50, 100, 200];
 const hk = gamesContent.hk6;
 
 /** 当前侧栏分类下方，按目录顺序多展示若干后续栏目的玩法块（填满可视区、减少空白） */
-const HK6_OVERFLOW_PLAY_SECTIONS = 6;
+const HK6_OVERFLOW_PLAY_SECTIONS = 10;
 
 function overflowPlaySectionsAfterActive(
   activeCategoryId: string,
