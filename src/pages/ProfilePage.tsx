@@ -17,7 +17,6 @@ type MeSummary = {
 
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
-  const { openChat } = useSupportChat();
   const signedIn = !!getToken();
 
   const [user, setUser] = useState<MeSummary | null>(null);
