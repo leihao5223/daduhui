@@ -1,10 +1,8 @@
-# 大都汇 pangxie → 生产「大都汇 API」隔离目录（与 WhatsApp 等其它路径并列、互不覆盖）
-# 远端：/srv/isolated/pangxie-daduhui · Node 127.0.0.1:3301 · systemd pangxie-daduhui-api.service
-# Nginx :8081 → 反代 3301（由服务器站点配置，不在此脚本内）
-# 用法（在 pangxie 根目录）：npm run deploy:vps | npm run deploy:vps:server（仅改 server）
-# 环境变量：ZMGJ_SSH_HOST（默认 107.149.189.110）、ZMGJ_SSH_PORT（默认 27637）
-# 私钥：%USERPROFILE%\.ssh\id_ed25519
-# 远端 Node：须 nvm v20（与线上一致）；不会上传 server/data/，避免覆盖生产 store.json
+# pangxie (daduhui) -> /srv/isolated/pangxie-daduhui
+# Default: 107.149.189.110:27637, systemd pangxie-daduhui-api, nvm Node 20
+# Usage: npm run deploy:vps | npm run deploy:vps:server
+# Env: ZMGJ_SSH_HOST, ZMGJ_SSH_PORT. Key: %USERPROFILE%\.ssh\id_ed25519
+# Does NOT upload server/data/
 
 param(
   [string] $ServerHost = "",
@@ -12,7 +10,6 @@ param(
   [string] $RemoteUser = "root",
   [string] $RemoteBase = "/srv/isolated/pangxie-daduhui",
   [switch] $SkipBuild,
-  # 只同步 server + package（等同手动的 scp 片段，不上传 dist）
   [switch] $ServerOnly,
   [string] $SystemdUnit = "pangxie-daduhui-api"
 )
@@ -30,24 +27,19 @@ if ($SshPort -le 0) {
 
 $key = Join-Path $env:USERPROFILE ".ssh\id_ed25519"
 if (-not (Test-Path $key)) {
-  throw "未找到 SSH 私钥: $key（请与国辉生产部署使用同一密钥）"
+  throw "SSH key not found: $key"
 }
-
-try {
-  [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-  $OutputEncoding = [Console]::OutputEncoding
-} catch {}
 
 $SshArgs = @(
   "-i", $key,
   "-o", "StrictHostKeyChecking=accept-new",
   "-o", "KexAlgorithms=curve25519-sha256",
-  "-o", "ConnectTimeout=15"
+  "-o", "ConnectTimeout=30"
 )
 
 if ($ServerOnly) {
   $SkipBuild = $true
-  Write-Host "==> ServerOnly: 跳过 dist 与 webpack 构建" -ForegroundColor Yellow
+  Write-Host "==> ServerOnly: skip dist and webpack" -ForegroundColor Yellow
 }
 
 if (-not $SkipBuild) {
@@ -60,7 +52,7 @@ if (-not $SkipBuild) {
 
 if (-not $ServerOnly) {
   if (-not (Test-Path (Join-Path $Root "dist\index.html"))) {
-    throw "缺少 dist/（请先 npm run build，或不要用 -SkipBuild / -ServerOnly）。"
+    throw "Missing dist/. Run npm run build first."
   }
 }
 
@@ -85,9 +77,9 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "SSH mkdir failed." }
 
   if ($ServerOnly) {
-    Write-Host "==> scp server + package.json + package-lock.json（无 dist）" -ForegroundColor Cyan
+    Write-Host "==> scp server + package files (no dist)" -ForegroundColor Cyan
   } else {
-    Write-Host "==> scp server, dist, package.json" -ForegroundColor Cyan
+    Write-Host "==> scp server, dist, package files" -ForegroundColor Cyan
   }
   scp @SshArgs -P $SshPort -r (Join-Path $stage "server") "${target}/"
   if ($LASTEXITCODE -ne 0) { throw "scp server failed." }
@@ -100,7 +92,7 @@ try {
   scp @SshArgs -P $SshPort (Join-Path $stage "package-lock.json") "${target}/"
   if ($LASTEXITCODE -ne 0) { throw "scp package-lock.json failed." }
 
-  Write-Host "==> remote: nvm use 20 + npm ci + systemctl restart $SystemdUnit" -ForegroundColor Cyan
+  Write-Host "==> remote: nvm 20 + npm ci + systemctl restart $SystemdUnit" -ForegroundColor Cyan
   $remote = "bash -lc 'source /root/.nvm/nvm.sh && nvm use 20 && cd ${RemoteBase} && (npm ci --omit=dev || npm install --omit=dev) && systemctl restart ${SystemdUnit}'"
   ssh @SshArgs -p $SshPort "${RemoteUser}@${ServerHost}" $remote
   if ($LASTEXITCODE -ne 0) { throw "Remote npm/restart failed." }
