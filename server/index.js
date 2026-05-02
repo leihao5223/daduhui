@@ -15,6 +15,8 @@ const userReports = require('./userReports');
 const adminData = require('./adminData');
 const support = require('./support');
 const adminUserPatch = require('./adminUserPatch');
+const gameRoomFeed = require('./gameRoomFeed');
+const adminSupportCustomer = require('./adminSupportCustomer');
 
 const PORT = Number(process.env.PORT || 3301);
 /** 星彩式：X-Admin-Token 或环境变量，与 /api/admin/login 独立 */
@@ -29,7 +31,7 @@ let store = { users: [], inviteCodes: [], cms: { companyInfo: {}, activityArticl
 /** @type {Map<string, string>} */
 const sessions = new Map();
 
-/** @type {Map<string, { userId: string; captchaAnswer: string }>} */
+/** @type {Map<string, { userId: string; slideTarget: number }>} */
 const preSessions = new Map();
 
 /** 管理端登录后 Bearer，与玩家 session 独立 */
@@ -76,6 +78,14 @@ function ensureActivityArticles(cms) {
   cms.activityArticles = next;
 }
 
+function ensureHomeMarqueeDefaults(cms) {
+  if (!cms || typeof cms !== 'object') return;
+  if (!cms.companyInfo || typeof cms.companyInfo !== 'object') cms.companyInfo = {};
+  const ci = cms.companyInfo;
+  if (ci.homeMarqueeEnabled === undefined) ci.homeMarqueeEnabled = true;
+  if (typeof ci.homeMarqueeText !== 'string') ci.homeMarqueeText = '';
+}
+
 function saveStore() {
   fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
   fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf8');
@@ -92,7 +102,12 @@ function migrateStore() {
   canada28.ensureCanada28(store);
   speedRacing.ensureSpeed(store);
   ensureActivityArticles(store.cms);
+  ensureHomeMarqueeDefaults(store.cms);
   support.ensureSupport(store);
+  gameRoomFeed.ensureFeeds(store);
+  for (const u of store.users) {
+    if (typeof u.onlineSecondsTotal !== 'number' || !Number.isFinite(u.onlineSecondsTotal)) u.onlineSecondsTotal = 0;
+  }
   saveStore();
 }
 
@@ -179,6 +194,7 @@ function recordUserIp(user, req) {
   if (!ip) return false;
   user.lastIp = ip;
   user.lastIpAt = new Date().toISOString();
+  finance.touchUserOnlineAccumulation(user);
   return true;
 }
 
@@ -210,48 +226,20 @@ function securityPresets() {
   };
 }
 
-function normSecAnswer(s) {
-  return String(s || '').trim().toLowerCase();
+/** 登录真人验证：拖动滑块对齐缺口（服务端存目标位置 gapPercent） */
+function randomSlideTarget() {
+  return 18 + Math.floor(Math.random() * 64);
 }
 
-function userSecurityQuestionPayload(user) {
-  const presetList = securityPresets().list;
-  const map = new Map(presetList.map((x) => [x.id, x.text]));
-  const seen = new Set();
-  const out = [];
-  for (const row of Array.isArray(user.security) ? user.security : []) {
-    const id = String(row.questionId || '').trim();
-    if (!id || seen.has(id)) continue;
-    const text = map.get(id);
-    if (!text) continue;
-    seen.add(id);
-    out.push({ id, text });
-  }
-  return out;
-}
-
-function verifyUserSecurityAnswer(user, questionId, rawAnswer) {
-  const qid = String(questionId || '').trim();
-  if (!qid || !String(rawAnswer || '').trim()) return false;
-  const want = normSecAnswer(rawAnswer);
-  const sec = Array.isArray(user.security) ? user.security : [];
-  for (const row of sec) {
-    if (String(row.questionId || '').trim() === qid && normSecAnswer(row.answer) === want) return true;
-  }
-  return false;
-}
-
-function setCaptcha(preSessionId) {
-  const a = 1 + Math.floor(Math.random() * 12);
-  const b = 1 + Math.floor(Math.random() * 12);
+function setSlideCaptcha(preSessionId) {
   const entry = preSessions.get(preSessionId);
-  if (entry) {
-    entry.captchaAnswer = String(a + b);
-  }
+  if (!entry) return null;
+  entry.slideTarget = randomSlideTarget();
   return {
     success: true,
-    captchaId: 'math',
-    prompt: `${a} + ${b} = ？`,
+    captchaId: 'slide',
+    gapPercent: entry.slideTarget,
+    hint: '拖动下方拼图块，与上方缺口对齐后点击「验证并登录」',
   };
 }
 
@@ -554,7 +542,7 @@ const server = http.createServer(async (req, res) => {
         passwordSalt: salt,
         tradePasswordHash: tradeHash.hash,
         tradePasswordSalt: tradeHash.salt,
-        security: Array.isArray(body.security) ? body.security : [],
+        security: [],
         parentId,
         registeredViaInviteCode,
         createdAt: new Date().toISOString(),
@@ -586,18 +574,18 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const preSessionId = crypto.randomBytes(16).toString('hex');
-      const a = 1 + Math.floor(Math.random() * 12);
-      const b = 1 + Math.floor(Math.random() * 12);
+      const slideTarget = randomSlideTarget();
       preSessions.set(preSessionId, {
         userId: user.id,
-        captchaAnswer: String(a + b),
+        slideTarget,
       });
       json(res, 200, {
         success: true,
         needHumanVerify: true,
         preSessionId,
-        captchaId: 'math',
-        prompt: `${a} + ${b} = ？`,
+        captchaId: 'slide',
+        gapPercent: slideTarget,
+        hint: '拖动下方拼图块，与上方缺口对齐后点击「验证并登录」',
       });
       return;
     }
@@ -610,7 +598,11 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, { success: false, message: '会话已失效，请重新登录' });
         return;
       }
-      const captcha = setCaptcha(preSessionId);
+      const captcha = setSlideCaptcha(preSessionId);
+      if (!captcha) {
+        json(res, 200, { success: false, message: '会话已失效，请重新登录' });
+        return;
+      }
       json(res, 200, captcha);
       return;
     }
@@ -619,21 +611,21 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && p === '/api/auth/login-confirm') {
       const body = await parseBody(req);
       const preSessionId = String(body.preSessionId || '');
-      const captchaAnswer = String(body.captchaAnswer || '').trim();
+      const slideX = Number(body.slideX);
       const entry = preSessions.get(preSessionId);
       if (!entry) {
         json(res, 200, { success: false, message: '会话已失效，请重新登录' });
         return;
       }
-      if (captchaAnswer !== entry.captchaAnswer) {
-        const a = 1 + Math.floor(Math.random() * 12);
-        const b = 1 + Math.floor(Math.random() * 12);
-        entry.captchaAnswer = String(a + b);
+      const target = Number(entry.slideTarget);
+      if (!Number.isFinite(slideX) || !Number.isFinite(target) || Math.abs(slideX - target) > 6) {
+        entry.slideTarget = randomSlideTarget();
         json(res, 200, {
           success: false,
-          message: '验证答案不正确',
-          captchaId: 'math',
-          prompt: `${a} + ${b} = ？`,
+          message: '拼图未对齐，请重试',
+          captchaId: 'slide',
+          gapPercent: entry.slideTarget,
+          hint: '拖动下方拼图块，与上方缺口对齐后点击「验证并登录」',
         });
         return;
       }
@@ -676,72 +668,6 @@ const server = http.createServer(async (req, res) => {
       base.data.speedTurnover = sr.turnover;
       base.data.speedPnl = sr.pnl;
       json(res, 200, base);
-      return;
-    }
-
-    /** ----- GET /api/me/security-for-password ----- */
-    if (req.method === 'GET' && p === '/api/me/security-for-password') {
-      const uid = authUserId(req);
-      if (!uid) {
-        json(res, 401, { success: false, message: '请先登录' });
-        return;
-      }
-      const user = userById(uid);
-      if (!user) {
-        json(res, 401, { success: false, message: '用户不存在' });
-        return;
-      }
-      const questions = userSecurityQuestionPayload(user);
-      if (!questions.length) {
-        json(res, 200, {
-          success: false,
-          message: '当前账号未设置密保，无法通过密保修改登录密码。请联系管理员或使用注册时已绑定的其他方式。',
-        });
-        return;
-      }
-      json(res, 200, { success: true, questions });
-      return;
-    }
-
-    /** ----- POST /api/me/change-password ----- */
-    if (req.method === 'POST' && p === '/api/me/change-password') {
-      const uid = authUserId(req);
-      if (!uid) {
-        json(res, 401, { success: false, message: '请先登录' });
-        return;
-      }
-      const user = userById(uid);
-      if (!user) {
-        json(res, 401, { success: false, message: '用户不存在' });
-        return;
-      }
-      const body = await parseBody(req);
-      const questionId = String(body.questionId || '').trim();
-      const answer = String(body.answer || '');
-      const newPassword = String(body.newPassword || '');
-      const newPasswordConfirm = String(body.newPasswordConfirm || '');
-      if (!questionId || !answer.trim()) {
-        json(res, 200, { success: false, message: '请选择密保问题并填写答案' });
-        return;
-      }
-      if (!verifyUserSecurityAnswer(user, questionId, answer)) {
-        json(res, 200, { success: false, message: '密保答案不正确' });
-        return;
-      }
-      if (newPassword.length < 6) {
-        json(res, 200, { success: false, message: '新登录密码至少 6 位' });
-        return;
-      }
-      if (newPassword !== newPasswordConfirm) {
-        json(res, 200, { success: false, message: '两次输入的新密码不一致' });
-        return;
-      }
-      const hp = hashPassword(newPassword);
-      user.passwordHash = hp.hash;
-      user.passwordSalt = hp.salt;
-      recordUserIp(user, req);
-      saveStore();
-      json(res, 200, { success: true, message: '登录密码已更新，下次请使用新密码登录。' });
       return;
     }
 
@@ -827,6 +753,18 @@ const server = http.createServer(async (req, res) => {
       json(res, 200, {
         success: true,
         list: store.cms.activityArticles,
+      });
+      return;
+    }
+
+    /** ----- GET /api/cms/home-marquee（首页公告走马灯，无需登录） ----- */
+    if (req.method === 'GET' && p === '/api/cms/home-marquee') {
+      ensureHomeMarqueeDefaults(store.cms);
+      const ci = store.cms.companyInfo || {};
+      json(res, 200, {
+        success: true,
+        enabled: ci.homeMarqueeEnabled !== false,
+        text: String(ci.homeMarqueeText || '').slice(0, 2000),
       });
       return;
     }
@@ -993,6 +931,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /** ----- GET /api/game/hk-marksix/feed ----- */
+    if (req.method === 'GET' && p === '/api/game/hk-marksix/feed') {
+      await hkMarkSix.touchHk6Sync(store, saveStore);
+      hkMarkSix.flushPendingSettlements(store, saveStore);
+      gameRoomFeed.ensureFeeds(store);
+      const after = url.searchParams.get('after') || '';
+      const limit = url.searchParams.get('limit') || '';
+      json(res, 200, { success: true, list: gameRoomFeed.listFeed(store, 'hk-marksix', after, limit) });
+      return;
+    }
+
     /** ----- POST /api/game/hk-marksix/bet ----- */
     if (req.method === 'POST' && p === '/api/game/hk-marksix/bet') {
       const uid = authUserId(req);
@@ -1035,6 +984,16 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /** ----- GET /api/game/canada-28/feed ----- */
+    if (req.method === 'GET' && p === '/api/game/canada-28/feed') {
+      await canada28.touchSync(store, saveStore);
+      gameRoomFeed.ensureFeeds(store);
+      const after = url.searchParams.get('after') || '';
+      const limit = url.searchParams.get('limit') || '';
+      json(res, 200, { success: true, list: gameRoomFeed.listFeed(store, 'canada-28', after, limit) });
+      return;
+    }
+
     /** ----- POST /api/game/canada-28/bet ----- */
     if (req.method === 'POST' && p === '/api/game/canada-28/bet') {
       const uid = authUserId(req);
@@ -1074,6 +1033,16 @@ const server = http.createServer(async (req, res) => {
       const q = new URL(req.url || '', 'http://x');
       const limit = q.searchParams.get('limit');
       json(res, 200, speedRacing.getHistory(store, limit));
+      return;
+    }
+
+    /** ----- GET /api/game/speed-racing/feed ----- */
+    if (req.method === 'GET' && p === '/api/game/speed-racing/feed') {
+      speedRacing.touchSync(store, saveStore);
+      gameRoomFeed.ensureFeeds(store);
+      const after = url.searchParams.get('after') || '';
+      const limit = url.searchParams.get('limit') || '';
+      json(res, 200, { success: true, list: gameRoomFeed.listFeed(store, 'speed-racing', after, limit) });
       return;
     }
 
@@ -1291,7 +1260,15 @@ const server = http.createServer(async (req, res) => {
       if (!requireAdmin(req, res)) return;
       const body = await parseBody(req);
       const data = body.data && typeof body.data === 'object' ? body.data : {};
-      store.cms.companyInfo = { ...(store.cms.companyInfo || {}), ...data };
+      const merged = { ...(store.cms.companyInfo || {}), ...data };
+      if (typeof merged.homeMarqueeText === 'string') {
+        merged.homeMarqueeText = merged.homeMarqueeText.slice(0, 2000);
+      }
+      if (merged.homeMarqueeEnabled !== undefined && typeof merged.homeMarqueeEnabled !== 'boolean') {
+        merged.homeMarqueeEnabled = Boolean(merged.homeMarqueeEnabled);
+      }
+      store.cms.companyInfo = merged;
+      ensureHomeMarqueeDefaults(store.cms);
       saveStore();
       json(res, 200, { success: true });
       return;
@@ -1450,6 +1427,28 @@ const server = http.createServer(async (req, res) => {
       support.ensureSupport(store);
       json(res, 200, { success: true, list: support.listSessionsForAdmin(store) });
       return;
+    }
+
+    /** ----- GET /api/admin/support/sessions/:id/customer-profile ----- */
+    {
+      const m = p.match(/^\/api\/admin\/support\/sessions\/([^/]+)\/customer-profile$/);
+      if (req.method === 'GET' && m) {
+        if (!requireAdmin(req, res)) return;
+        const id = decodeURIComponent(m[1]);
+        support.ensureSupport(store);
+        const sess = support.findSessionById(store, id);
+        if (!sess) {
+          json(res, 404, { success: false, message: '会话不存在' });
+          return;
+        }
+        const u = userById(sess.userId);
+        if (!u) {
+          json(res, 404, { success: false, message: '用户不存在' });
+          return;
+        }
+        json(res, 200, { success: true, data: adminSupportCustomer.buildCustomerProfile(store, u) });
+        return;
+      }
     }
 
     /** ----- GET /api/admin/support/sessions/:id/messages ----- */

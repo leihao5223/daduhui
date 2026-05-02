@@ -6,8 +6,7 @@ export const authContent = {
   },
   register: {
     title: '创建账户',
-    subtitle: '账号 · 密码 · 密保',
-    loadingPresets: '加载密保问题…',
+    subtitle: '账号 · 密码 · 交易密码',
   },
   errors: {
     needCredentials: '请输入账号和密码',

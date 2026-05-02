@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Banner from '../components/Banner';
+import HomeMarquee from '../components/HomeMarquee';
 import GameCategory from '../components/GameCategory';
 import { STORAGE_KEYS } from '../config/constants';
 
@@ -22,6 +23,7 @@ const HomePage: React.FC = () => {
   return (
     <>
       <Banner />
+      <HomeMarquee />
       <GameCategory />
     </>
   );

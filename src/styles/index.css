@@ -304,6 +304,66 @@ body {
   font-size: 1.25rem;
 }
 
+/* 首页公告走马灯 */
+.home-marquee {
+  display: flex;
+  align-items: stretch;
+  margin: 0 1rem 0.75rem;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 215, 0, 0.28);
+  background: linear-gradient(90deg, rgba(18, 22, 32, 0.98), rgba(28, 32, 44, 0.95));
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.home-marquee__badge {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #0a0e17;
+  background: linear-gradient(135deg, #ffd700, #e6a800);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.home-marquee__track {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  padding: 0.55rem 0;
+}
+
+.home-marquee__strip {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: home-marquee-scroll linear infinite;
+}
+
+.home-marquee__text {
+  display: inline-block;
+  padding: 0 2.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255, 248, 220, 0.92);
+  letter-spacing: 0.02em;
+}
+
+@keyframes home-marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
 /* Banner Styles */
 .banner-section {
   padding: 1rem;

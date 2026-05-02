@@ -248,6 +248,23 @@ function patchWithdrawLedgerAdmin(store, txId, newStatus, reason) {
   return { error: '目标状态须为「成功」或「已驳回」' };
 }
 
+/** 在已认证请求上按间隔累计在线时长（单次最多记 300s，避免异常跳变） */
+function touchUserOnlineAccumulation(user) {
+  if (!user || typeof user !== 'object') return;
+  const now = Date.now();
+  const prevIso = user._onlineTickAt;
+  const prev = prevIso ? Date.parse(prevIso) : NaN;
+  if (!Number.isFinite(prev)) {
+    user._onlineTickAt = new Date().toISOString();
+    return;
+  }
+  const elapsed = Math.floor((now - prev) / 1000);
+  if (elapsed < 2) return;
+  const add = Math.min(elapsed, 300);
+  user.onlineSecondsTotal = Math.floor(Number(user.onlineSecondsTotal) || 0) + add;
+  user._onlineTickAt = new Date().toISOString();
+}
+
 module.exports = {
   ensureMeta,
   ensureUserFinance,
@@ -257,4 +274,5 @@ module.exports = {
   listAllLedgerAdmin,
   patchWithdrawLedgerAdmin,
   shanghaiTodayYmd,
+  touchUserOnlineAccumulation,
 };

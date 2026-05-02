@@ -16,6 +16,8 @@ module.exports = (env = {}, argv) => {
           setupMiddlewares(middlewares) {
             /** Session map keyed by Bearer token when mockApi is on. */
             const mockSessions = new Map();
+            /** In-memory CMS snippet for dev homepage marquee when backend is not used. */
+            let mockHomeMarquee = { enabled: true, text: '欢迎使用大都汇（本地 Mock 首页公告走马灯）' };
 
             function derivedDisplayId8FromSeed(seed) {
               const s = String(seed || '0');
@@ -45,10 +47,6 @@ module.exports = (env = {}, argv) => {
                   balance: 8888.88,
                   ledger: [],
                   mockBetOrders: [],
-                  security: [
-                    { questionId: 'q1', answer: 'mock' },
-                    { questionId: 'q2', answer: 'mock2' },
-                  ],
                 });
               }
               return mockSessions.get(token);
@@ -108,6 +106,15 @@ module.exports = (env = {}, argv) => {
                     { id: 'activity-2', title: '', body: '', updatedAt: null },
                     { id: 'activity-3', title: '', body: '', updatedAt: null },
                   ],
+                });
+                return;
+              }
+
+              if (req.method === 'GET' && pathOnly === '/api/cms/home-marquee') {
+                sendJson(res, 200, {
+                  success: true,
+                  enabled: mockHomeMarquee.enabled !== false,
+                  text: String(mockHomeMarquee.text || '').slice(0, 2000),
                 });
                 return;
               }
@@ -203,58 +210,6 @@ module.exports = (env = {}, argv) => {
                         },
                       ];
                 sendJson(res, 200, { success: true, list });
-                return;
-              }
-
-              if (req.method === 'GET' && pathOnly === '/api/me/security-for-password') {
-                const s = getMockSession(getBearer(req));
-                if (!s) {
-                  sendJson(res, 401, { success: false, message: '请先登录' });
-                  return;
-                }
-                const sec = Array.isArray(s.security) ? s.security : [];
-                const questions = sec
-                  .map((row) => {
-                    const id = String(row.questionId || '');
-                    const map = {
-                      q1: '你的小学名字是什么？',
-                      q2: '你最喜欢的颜色是什么？',
-                      q3: '你的出生地是哪里？',
-                      q4: '你最好的朋友名字是什么？',
-                    };
-                    const text = map[id];
-                    return id && text ? { id, text } : null;
-                  })
-                  .filter(Boolean);
-                if (!questions.length) {
-                  sendJson(res, 200, { success: false, message: '当前账号未设置密保' });
-                  return;
-                }
-                sendJson(res, 200, { success: true, questions });
-                return;
-              }
-
-              if (req.method === 'POST' && pathOnly === '/api/me/change-password') {
-                void readJsonBody(req).then((body) => {
-                  const s = getMockSession(getBearer(req));
-                  if (!s) {
-                    sendJson(res, 401, { success: false, message: '请先登录' });
-                    return;
-                  }
-                  const qid = String(body.questionId || '').trim();
-                  const ans = String(body.answer || '').trim().toLowerCase();
-                  const sec = Array.isArray(s.security) ? s.security : [];
-                  const ok = sec.some(
-                    (row) =>
-                      String(row.questionId || '').trim() === qid &&
-                      String(row.answer || '').trim().toLowerCase() === ans,
-                  );
-                  if (!ok) {
-                    sendJson(res, 200, { success: false, message: '密保答案不正确' });
-                    return;
-                  }
-                  sendJson(res, 200, { success: true, message: '登录密码已更新（mock 模式未持久化）' });
-                });
                 return;
               }
 

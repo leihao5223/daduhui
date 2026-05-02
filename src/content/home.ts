@@ -39,4 +39,6 @@ export const homeContent = {
   bannerDotAria: (indexOneBased: number) => `切换到第 ${indexOneBased} 张`,
   gameCategoryAriaLabel: '游戏分区',
   viewAll: '查看全部',
+  marqueeAria: '平台公告',
+  marqueeBadge: '公告',
 } as const;

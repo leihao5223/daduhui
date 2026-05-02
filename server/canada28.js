@@ -6,6 +6,7 @@ const rules = require('./canada28Rules');
 const finance = require('./finance');
 const canada28Sync = require('./canada28Sync');
 const ca28SyncConfig = require('./ca28SyncConfig');
+const gameRoomFeed = require('./gameRoomFeed');
 
 const CYCLE_SEC = Number(process.env.CA28_CYCLE_SEC || 210); // 3.5 分钟
 
@@ -312,6 +313,7 @@ async function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
     balanceAfter: user.balance,
     meta: { betId, period: periodNow, lines: normalized },
   });
+  gameRoomFeed.appendBetPair(store, 'canada-28', user.nickname, userId, periodNow, normalized, total, user.balance);
   saveStore();
   return {
     ok: true,

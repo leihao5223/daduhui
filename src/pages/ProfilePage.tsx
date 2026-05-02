@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowDownToLine, ArrowUpFromLine, FileBarChart2, Coins, UserRound, KeyRound } from 'lucide-react';
-import { apiGet, apiPost } from '../api/http';
+import { ArrowDownToLine, ArrowUpFromLine, FileBarChart2, Coins, UserRound } from 'lucide-react';
+import { apiGet } from '../api/http';
 import { getToken, logout } from '../lib/auth';
 import { publicDisplayId8 } from '../lib/publicDisplayId';
 import { PageHeader } from '../components/layout/PageHeader';
@@ -59,17 +59,6 @@ const ProfilePage: React.FC = () => {
   const [ordLoading, setOrdLoading] = useState(false);
   const [ordErr, setOrdErr] = useState<string | null>(null);
 
-  const [pwdOpen, setPwdOpen] = useState(false);
-  const [pwdQuestions, setPwdQuestions] = useState<{ id: string; text: string }[]>([]);
-  const [pwdQid, setPwdQid] = useState('');
-  const [pwdAnswer, setPwdAnswer] = useState('');
-  const [pwdNew, setPwdNew] = useState('');
-  const [pwdNew2, setPwdNew2] = useState('');
-  const [pwdPrefaceLoading, setPwdPrefaceLoading] = useState(false);
-  const [pwdPrefaceErr, setPwdPrefaceErr] = useState<string | null>(null);
-  const [pwdSubmitting, setPwdSubmitting] = useState(false);
-  const [pwdFormErr, setPwdFormErr] = useState<string | null>(null);
-
   const fetchFinance = useCallback(async () => {
     if (!getToken()) return;
     setFinLoading(true);
@@ -110,44 +99,6 @@ const ProfilePage: React.FC = () => {
       setOrdLoading(false);
     }
   }, [ordFrom, ordTo]);
-
-  useEffect(() => {
-    if (!pwdOpen) return;
-    let cancelled = false;
-    (async () => {
-      if (!getToken()) return;
-      setPwdPrefaceLoading(true);
-      setPwdPrefaceErr(null);
-      setPwdFormErr(null);
-      try {
-        const r = await apiGet<{ success?: boolean; questions?: { id: string; text: string }[]; message?: string }>(
-          '/api/me/security-for-password',
-        );
-        if (cancelled) return;
-        if (r.success && Array.isArray(r.questions) && r.questions.length > 0) {
-          setPwdQuestions(r.questions);
-          setPwdQid(r.questions[0].id);
-          setPwdAnswer('');
-          setPwdNew('');
-          setPwdNew2('');
-        } else {
-          setPwdQuestions([]);
-          setPwdQid('');
-          setPwdPrefaceErr(typeof r.message === 'string' ? r.message : profileContent.pwdErrGeneric);
-        }
-      } catch (e: unknown) {
-        if (!cancelled) {
-          setPwdQuestions([]);
-          setPwdPrefaceErr(e instanceof Error ? e.message : profileContent.pwdErrGeneric);
-        }
-      } finally {
-        if (!cancelled) setPwdPrefaceLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [pwdOpen]);
 
   useEffect(() => {
     if (!signedIn) {
@@ -265,13 +216,6 @@ const ProfilePage: React.FC = () => {
             <FileBarChart2 size={20} />
             {profileContent.fundRecords}
           </Link>
-        </div>
-
-        <div className="dx-profile-cta-row dx-profile-cta-row--single">
-          <button type="button" className="dx-cta dx-cta--outline dx-cta--wide" onClick={() => setPwdOpen(true)}>
-            <KeyRound size={20} />
-            {profileContent.changePassword}
-          </button>
         </div>
 
         <section className="dx-rep-card">
@@ -402,136 +346,6 @@ const ProfilePage: React.FC = () => {
         <button type="button" className="dx-btn-logout" onClick={handleLogout}>
           {profileContent.logout}
         </button>
-
-        {pwdOpen ? (
-          <div
-            className="dx-modal-backdrop"
-            role="presentation"
-            onClick={() => {
-              if (!pwdSubmitting) setPwdOpen(false);
-            }}
-          >
-            <div className="dx-modal dx-modal--form" onClick={(e) => e.stopPropagation()}>
-              <h2 className="dx-modal-title">{profileContent.pwdModalTitle}</h2>
-              <p className="dx-profile-pwd-hint">{profileContent.pwdModalHint}</p>
-              {pwdPrefaceLoading ? (
-                <p className="dx-rep-muted">{profileContent.pwdLoading}</p>
-              ) : pwdPrefaceErr ? (
-                <p className="dx-rep-err">{pwdPrefaceErr}</p>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void (async () => {
-                      setPwdFormErr(null);
-                      if (!pwdQid || !pwdAnswer.trim()) {
-                        setPwdFormErr('请填写密保答案');
-                        return;
-                      }
-                      if (pwdNew.length < 6) {
-                        setPwdFormErr('新密码至少 6 位');
-                        return;
-                      }
-                      if (pwdNew !== pwdNew2) {
-                        setPwdFormErr('两次新密码不一致');
-                        return;
-                      }
-                      setPwdSubmitting(true);
-                      try {
-                        const r = await apiPost<{ success?: boolean; message?: string }>('/api/me/change-password', {
-                          questionId: pwdQid,
-                          answer: pwdAnswer.trim(),
-                          newPassword: pwdNew,
-                          newPasswordConfirm: pwdNew2,
-                        });
-                        if (r.success) {
-                          window.alert(r.message || profileContent.pwdSuccess);
-                          setPwdOpen(false);
-                        } else {
-                          setPwdFormErr(r.message || profileContent.pwdErrGeneric);
-                        }
-                      } catch (err: unknown) {
-                        setPwdFormErr(err instanceof Error ? err.message : profileContent.pwdErrGeneric);
-                      } finally {
-                        setPwdSubmitting(false);
-                      }
-                    })();
-                  }}
-                >
-                  {pwdFormErr ? <p className="dx-rep-err">{pwdFormErr}</p> : null}
-                  <div className="dx-form-row">
-                    <label className="dx-label" htmlFor="pwd-q">
-                      {profileContent.pwdPickQuestion}
-                    </label>
-                    <select
-                      id="pwd-q"
-                      className="dx-select"
-                      value={pwdQid}
-                      onChange={(e) => setPwdQid(e.target.value)}
-                    >
-                      {pwdQuestions.map((q) => (
-                        <option key={q.id} value={q.id}>
-                          {q.text}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="dx-form-row">
-                    <label className="dx-label" htmlFor="pwd-a">
-                      {profileContent.pwdAnswer}
-                    </label>
-                    <input
-                      id="pwd-a"
-                      className="dx-input"
-                      autoComplete="off"
-                      value={pwdAnswer}
-                      onChange={(e) => setPwdAnswer(e.target.value)}
-                    />
-                  </div>
-                  <div className="dx-form-row">
-                    <label className="dx-label" htmlFor="pwd-n1">
-                      {profileContent.pwdNew}
-                    </label>
-                    <input
-                      id="pwd-n1"
-                      type="password"
-                      className="dx-input"
-                      autoComplete="new-password"
-                      value={pwdNew}
-                      onChange={(e) => setPwdNew(e.target.value)}
-                    />
-                  </div>
-                  <div className="dx-form-row">
-                    <label className="dx-label" htmlFor="pwd-n2">
-                      {profileContent.pwdNew2}
-                    </label>
-                    <input
-                      id="pwd-n2"
-                      type="password"
-                      className="dx-input"
-                      autoComplete="new-password"
-                      value={pwdNew2}
-                      onChange={(e) => setPwdNew2(e.target.value)}
-                    />
-                  </div>
-                  <div className="dx-modal-actions dx-modal-actions--stack">
-                    <button type="submit" className="dx-btn-primary" disabled={pwdSubmitting}>
-                      {pwdSubmitting ? '…' : profileContent.pwdSubmit}
-                    </button>
-                    <button
-                      type="button"
-                      className="dx-btn-ghost"
-                      disabled={pwdSubmitting}
-                      onClick={() => setPwdOpen(false)}
-                    >
-                      {profileContent.pwdCancel}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        ) : null}
       </main>
     </div>
   );

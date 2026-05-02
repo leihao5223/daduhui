@@ -4,6 +4,7 @@ import { apiGet, apiPost } from '../../api/http';
 import { getToken } from '../../lib/auth';
 import '../../styles/hk-marksix-game.css';
 import { gamesContent } from '../../content/games';
+import { GamePublicFeed } from '../../components/game/GamePublicFeed';
 
 const QUICK_STAKES = [10, 20, 50, 100, 200];
 const t = gamesContent.speed;
@@ -61,8 +62,27 @@ const SpeedRacingGamePage: React.FC = () => {
   const [balance, setBalance] = useState<number | null>(null);
   const [flow, setFlow] = useState<number | null>(null);
   const [pnl, setPnl] = useState<number | null>(null);
+  const [feedNonce, setFeedNonce] = useState(0);
 
   const activeBlocks = useMemo(() => SPEED_OPTIONS.find((x) => x.cat === activeCat)?.playTypes ?? [], [activeCat]);
+
+  const keyToLabel = useCallback((key: string) => {
+    for (const block of SPEED_OPTIONS) {
+      for (const pt of block.playTypes) {
+        for (const opt of pt.options) {
+          if (opt.key === key) return opt.label;
+        }
+      }
+    }
+    return key;
+  }, []);
+
+  const betPreviewLine = useMemo(() => {
+    if (!selectedKeys.size || !Number.isFinite(unitAmount) || unitAmount <= 0) return '';
+    return Array.from(selectedKeys)
+      .map((k) => `1/${keyToLabel(k)}/${unitAmount}`)
+      .join(' ');
+  }, [selectedKeys, unitAmount, keyToLabel]);
 
   const refreshBalance = useCallback(async () => {
     if (!getToken()) {
@@ -176,6 +196,7 @@ const SpeedRacingGamePage: React.FC = () => {
       if (data.success) {
         window.alert(t.betSuccess(total.toFixed(2)));
         setSelectedKeys(new Set());
+        setFeedNonce((n) => n + 1);
         void refreshBalance();
       } else {
         window.alert(data.message || t.betFail);
@@ -245,6 +266,15 @@ const SpeedRacingGamePage: React.FC = () => {
           {t.historyBtn}
         </button>
       </section>
+
+      <GamePublicFeed
+        key={feedNonce}
+        apiPath="/api/game/speed-racing/feed"
+        title={t.publicFeedTitle}
+        emptyLabel={t.publicFeedEmpty}
+        previewLine={betPreviewLine || null}
+        previewCaption={`${t.betPreviewLabel} · ${t.betPreviewHint}`}
+      />
 
       <section className="hk6-bet-plate" aria-label={t.betPlateAria}>
         <aside className="hk6-sidebar">

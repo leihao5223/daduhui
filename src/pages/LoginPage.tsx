@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { apiPost } from '../api/http';
 import { isAuthenticated, setToken } from '../lib/auth';
 import { CyberAuthShell } from '../components/auth/CyberAuthShell';
+import { SlideImageHumanCaptcha } from '../components/auth/SlideImageHumanCaptcha';
 import { STORAGE_KEYS } from '../config/constants';
 import { authContent } from '../content/auth';
 import '../styles/cyber-chinese-login.css';
@@ -20,9 +21,9 @@ const LoginPage: React.FC = () => {
 
   const [awaitHuman, setAwaitHuman] = useState(false);
   const [preSessionId, setPreSessionId] = useState('');
-  const [captchaId, setCaptchaId] = useState('');
-  const [captchaPrompt, setCaptchaPrompt] = useState('');
-  const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [gapPercent, setGapPercent] = useState(50);
+  const [captchaHint, setCaptchaHint] = useState('');
+  const [slideX, setSlideX] = useState(0);
 
   useEffect(() => {
     if (isAuthenticated()) {
@@ -56,18 +57,18 @@ const LoginPage: React.FC = () => {
     try {
       const data = await apiPost<{
         success?: boolean;
-        captchaId?: string;
-        prompt?: string;
+        gapPercent?: number;
+        hint?: string;
         message?: string;
       }>('/api/auth/login-refresh-human', {
         preSessionId,
-        captchaId,
+        captchaId: 'slide',
       });
 
-      if (data.success && data.captchaId && data.prompt) {
-        setCaptchaId(data.captchaId);
-        setCaptchaPrompt(data.prompt);
-        setCaptchaAnswer('');
+      if (data.success && typeof data.gapPercent === 'number') {
+        setGapPercent(data.gapPercent);
+        setCaptchaHint(String(data.hint || ''));
+        setSlideX(0);
       }
     } catch {
       setAwaitHuman(false);
@@ -91,8 +92,8 @@ const LoginPage: React.FC = () => {
           success?: boolean;
           needHumanVerify?: boolean;
           preSessionId?: string;
-          captchaId?: string;
-          prompt?: string;
+          gapPercent?: number;
+          hint?: string;
           message?: string;
         }>('/api/auth/login', {
           nickname: nickname.trim(),
@@ -105,9 +106,9 @@ const LoginPage: React.FC = () => {
         }
 
         setPreSessionId(data.preSessionId);
-        setCaptchaId(data.captchaId || '');
-        setCaptchaPrompt(data.prompt || '');
-        setCaptchaAnswer('');
+        if (typeof data.gapPercent === 'number') setGapPercent(data.gapPercent);
+        setCaptchaHint(String(data.hint || ''));
+        setSlideX(0);
         setAwaitHuman(true);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : '网络错误');
@@ -117,31 +118,25 @@ const LoginPage: React.FC = () => {
       return;
     }
 
-    if (!captchaAnswer.trim()) {
-      setError('请完成真人验证');
-      return;
-    }
-
     setBusy(true);
     try {
       const data = await apiPost<{
         success?: boolean;
         token?: string;
         message?: string;
-        captchaId?: string;
-        prompt?: string;
+        gapPercent?: number;
+        hint?: string;
       }>('/api/auth/login-confirm', {
         preSessionId,
-        captchaId,
-        captchaAnswer: captchaAnswer.trim(),
+        slideX: Number(slideX.toFixed(1)),
       });
 
       if (!data.success || !data.token) {
         setError(data.message || '验证失败');
-        if (data.captchaId && data.prompt) {
-          setCaptchaId(data.captchaId);
-          setCaptchaPrompt(data.prompt);
-          setCaptchaAnswer('');
+        if (typeof data.gapPercent === 'number') {
+          setGapPercent(data.gapPercent);
+          setCaptchaHint(String(data.hint || ''));
+          setSlideX(0);
         }
         return;
       }
@@ -179,9 +174,9 @@ const LoginPage: React.FC = () => {
   function handleBackToCredentials() {
     setAwaitHuman(false);
     setPreSessionId('');
-    setCaptchaId('');
-    setCaptchaPrompt('');
-    setCaptchaAnswer('');
+    setGapPercent(50);
+    setCaptchaHint('');
+    setSlideX(0);
     setError(null);
   }
 
@@ -232,11 +227,7 @@ const LoginPage: React.FC = () => {
 
               <div className="cyber-auth-row">
                 <label className="cyber-auth-check" style={{ margin: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                  />
+                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
                   记住密码
                 </label>
                 <Link to="/forgot-password" className="link-item">
@@ -249,18 +240,13 @@ const LoginPage: React.FC = () => {
               <p className="input-label" style={{ textAlign: 'center' }}>
                 真人验证
               </p>
-              <p className="cyber-auth-captcha-prompt">{captchaPrompt}</p>
-              <div className="input-group">
-                <input
-                  type="text"
-                  className="input-field"
-                  inputMode="numeric"
-                  placeholder="请输入计算结果"
-                  value={captchaAnswer}
-                  onChange={(e) => setCaptchaAnswer(e.target.value.replace(/\D/g, ''))}
-                  autoFocus
-                />
-              </div>
+              <SlideImageHumanCaptcha
+                gapPercent={gapPercent}
+                value={slideX}
+                onChange={setSlideX}
+                disabled={busy}
+                hint={captchaHint}
+              />
               <button type="button" className="cyber-auth-refresh" onClick={() => void refreshCaptcha()}>
                 换一题
               </button>

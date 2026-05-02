@@ -5,6 +5,7 @@ import { apiGet, apiPost } from '../../api/http';
 import { getToken } from '../../lib/auth';
 import '../../styles/hk-marksix-game.css';
 import { gamesContent } from '../../content/games';
+import { GamePublicFeed } from '../../components/game/GamePublicFeed';
 
 type Ca28Derived = {
   sum: number;
@@ -60,6 +61,7 @@ const Canada28GamePage: React.FC = () => {
   const [balance, setBalance] = useState<number | null>(null);
   const [flow, setFlow] = useState<number | null>(null);
   const [pnl, setPnl] = useState<number | null>(null);
+  const [feedNonce, setFeedNonce] = useState(0);
 
   const activeCategory = useMemo(
     () => canada28PlayCatalog.find((c) => c.id === activeCategoryId),
@@ -159,6 +161,17 @@ const Canada28GamePage: React.FC = () => {
   const selectedCount = selectedKeys.size;
   const totalStake = selectedCount * unitAmount;
 
+  const caBetPreviewLine = useMemo(() => {
+    if (!selectedKeys.size || !Number.isFinite(unitAmount) || unitAmount <= 0) return '';
+    return Array.from(selectedKeys)
+      .map((k) => {
+        const parts = String(k).split(':').filter(Boolean);
+        const tail = parts.length >= 2 ? parts.slice(-2).join(':') : String(k).slice(0, 14);
+        return `1/${tail}/${unitAmount}`;
+      })
+      .join(' ');
+  }, [selectedKeys, unitAmount]);
+
   const lastDrawSummary = useMemo(() => {
     const der = status?.lastDraw?.derived;
     return der ? formatDerived(der) : null;
@@ -190,6 +203,7 @@ const Canada28GamePage: React.FC = () => {
       if (data.success) {
         window.alert(t.betSuccess(totalStake.toFixed(2)));
         setSelectedKeys(new Set());
+        setFeedNonce((n) => n + 1);
         void refreshBalance();
       } else {
         window.alert(data.message || t.betFail);
@@ -264,6 +278,15 @@ const Canada28GamePage: React.FC = () => {
           {t.historyBtn}
         </button>
       </section>
+
+      <GamePublicFeed
+        key={feedNonce}
+        apiPath="/api/game/canada-28/feed"
+        title={t.publicFeedTitle}
+        emptyLabel={t.publicFeedEmpty}
+        previewLine={caBetPreviewLine || null}
+        previewCaption={`${t.betPreviewLabel} · ${t.betPreviewHint}`}
+      />
 
       <section className="hk6-bet-plate" aria-label={t.betPlateAria}>
         <aside className="hk6-sidebar">

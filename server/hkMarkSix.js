@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const rules = require('./hkMarkSixRules');
 const finance = require('./finance');
 const hkMarkSixSync = require('./hkMarkSixSync');
+const gameRoomFeed = require('./gameRoomFeed');
 
 function maxDrawCap() {
   const n = Number(process.env.HK6_MAX_DRAWS || 200);
@@ -446,6 +447,7 @@ async function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
     balanceAfter: user.balance,
     meta: { betId, period, lines: normalized },
   });
+  gameRoomFeed.appendBetPair(store, 'hk-marksix', user.nickname, userId, period, normalized, total, user.balance);
   saveStore();
   return {
     ok: true,

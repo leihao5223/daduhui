@@ -7,6 +7,7 @@ import '../../styles/hk-marksix-game.css';
 import { gamesContent } from '../../content/games';
 import { HkMarkSixComboPanel } from './HkMarkSixComboPanel';
 import { HkMarkSixQuickBetPanel, type QuickBetLabels } from './HkMarkSixQuickBetPanel';
+import { GamePublicFeed } from '../../components/game/GamePublicFeed';
 
 type Hk6DrawDerived = {
   main: Array<{ zodiac?: string | null }>;
@@ -169,6 +170,7 @@ const HkMarkSixGamePage: React.FC = () => {
   const [hkTurnover, setHkTurnover] = useState<number | null>(null);
   const [hkPnl, setHkPnl] = useState<number | null>(null);
   const [hkRebate, setHkRebate] = useState<number | null>(null);
+  const [feedNonce, setFeedNonce] = useState(0);
 
   const activeCategory = useMemo(
     () => hkMarkSixPlayCatalog.find((c) => c.id === activeCategoryId),
@@ -342,6 +344,17 @@ const HkMarkSixGamePage: React.FC = () => {
   const selectedCount = selectedKeys.size;
   const totalStake = selectedCount * unitAmount;
 
+  const hkBetPreviewLine = useMemo(() => {
+    if (!selectedKeys.size || !Number.isFinite(unitAmount) || unitAmount <= 0) return '';
+    return Array.from(selectedKeys)
+      .map((k) => {
+        const parts = String(k).split(':').filter(Boolean);
+        const tail = parts.length >= 2 ? parts.slice(-2).join(':') : String(k).slice(0, 14);
+        return `1/${tail}/${unitAmount}`;
+      })
+      .join(' ');
+  }, [selectedKeys, unitAmount]);
+
   const lastDrawBalls = useMemo(() => {
     const ld = status?.lastDraw;
     if (!ld || !Array.isArray(ld.balls)) return [];
@@ -390,6 +403,7 @@ const HkMarkSixGamePage: React.FC = () => {
       if (data.success) {
         window.alert(hk.betSuccess(totalStake.toFixed(2)));
         setSelectedKeys(new Set());
+        setFeedNonce((n) => n + 1);
         void refreshBalance();
       } else {
         window.alert(data.message || hk.betFail);
@@ -485,6 +499,15 @@ const HkMarkSixGamePage: React.FC = () => {
           {hk.historyBtn}
         </button>
       </section>
+
+      <GamePublicFeed
+        key={feedNonce}
+        apiPath="/api/game/hk-marksix/feed"
+        title={hk.publicFeedTitle}
+        emptyLabel={hk.publicFeedEmpty}
+        previewLine={hkBetPreviewLine || null}
+        previewCaption={`${hk.betPreviewLabel} · ${hk.betPreviewHint}`}
+      />
 
       <section className="hk6-bet-plate" aria-label={hk.betPlateAria}>
         <aside className="hk6-sidebar">

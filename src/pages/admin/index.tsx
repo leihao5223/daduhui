@@ -252,6 +252,8 @@ export function AdminConsolePage() {
     { id: 'activity-2', title: '', body: '', updatedAt: null },
     { id: 'activity-3', title: '', body: '', updatedAt: null },
   ]);
+  const [homeMarqueeText, setHomeMarqueeText] = useState('');
+  const [homeMarqueeEnabled, setHomeMarqueeEnabled] = useState(true);
 
   const [finFrom, setFinFrom] = useState(adminTodayYmd);
   const [finTo, setFinTo] = useState(adminTodayYmd);
@@ -354,6 +356,9 @@ export function AdminConsolePage() {
     } catch {
       setSystemSwitch({ enableTransfer: true, enableVipReward: true, enableDrawManual: true });
     }
+    setHomeMarqueeText(String(c.homeMarqueeText ?? ''));
+    setHomeMarqueeEnabled(c.homeMarqueeEnabled !== false);
+
     const arts = r.data?.activityArticles;
     if (Array.isArray(arts) && arts.length) {
       const pad: ActivityArticleRow[] = [
@@ -480,6 +485,20 @@ export function AdminConsolePage() {
       body: JSON.stringify({ articles: activityArticles }),
     });
     window.alert('活动中心已保存');
+    await loadPolicy();
+  }
+
+  async function saveHomeMarquee() {
+    await adminFetch('/api/admin/cms/companyInfo', {
+      method: 'PUT',
+      body: JSON.stringify({
+        data: {
+          homeMarqueeText: homeMarqueeText.trim(),
+          homeMarqueeEnabled,
+        },
+      }),
+    });
+    window.alert('首页公告已保存');
     await loadPolicy();
   }
 
@@ -762,6 +781,33 @@ export function AdminConsolePage() {
                   <b>{stats.activeRooms}</b>
                   <p className="dh-admin-text-muted">活跃订单</p>
                 </div>
+              </div>
+              <div className="dh-admin-card" style={{ marginTop: '1.5rem' }}>
+                <h2 className="dh-admin-h2">首页公告走马灯</h2>
+                <p className="dh-admin-text-muted">
+                  开启且填写内容后，首页 Banner 下方显示横向滚动公告；关闭或留空则不显示。
+                </p>
+                <label className="dh-admin-label" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '1rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={homeMarqueeEnabled}
+                    onChange={(e) => setHomeMarqueeEnabled(e.target.checked)}
+                  />
+                  启用首页公告
+                </label>
+                <label className="dh-admin-label" style={{ display: 'block', marginBottom: '1rem' }}>
+                  公告正文（纯文本，最多约 2000 字）
+                  <textarea
+                    className="dh-admin-input"
+                    style={{ minHeight: 88, resize: 'vertical' }}
+                    value={homeMarqueeText}
+                    onChange={(e) => setHomeMarqueeText(e.target.value)}
+                    placeholder="例如：平台维护通知、活动说明等"
+                  />
+                </label>
+                <button type="button" className="dh-admin-btn dh-admin-btn--primary" onClick={() => void saveHomeMarquee()}>
+                  保存首页公告
+                </button>
               </div>
               <div className="dh-admin-card" style={{ marginTop: '1.5rem' }}>
                 <h2 className="dh-admin-h2">活动中心</h2>
@@ -1543,6 +1589,28 @@ type SupportSessionRow = {
 
 type SupportMsgRow = { id: string; role: string; text: string; createdAt: string };
 
+type SupportCustomerProfile = {
+  userId: string;
+  nickname: string;
+  displayId8: string;
+  customerNo: string;
+  lastIp: string;
+  lastIpAt: string | null;
+  totalDeposit: number;
+  totalWithdraw: number;
+  orderCount: number;
+  onlineSecondsTotal: number;
+};
+
+function formatOnlineSeconds(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h} 小时 ${m} 分`;
+  if (m > 0) return `${m} 分钟`;
+  return `${s} 秒`;
+}
+
 export function AdminSupportPage() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<SupportSessionRow[]>([]);
@@ -1553,6 +1621,8 @@ export function AdminSupportPage() {
   const [sending, setSending] = useState(false);
   const lastIdRef = useRef('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [custProfile, setCustProfile] = useState<SupportCustomerProfile | null>(null);
+  const [custProfileErr, setCustProfileErr] = useState<string | null>(null);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -1571,6 +1641,19 @@ export function AdminSupportPage() {
     if (r.success && Array.isArray(r.messages)) {
       setMsgs(r.messages);
       lastIdRef.current = r.messages.length ? r.messages[r.messages.length - 1].id : '';
+    }
+  }, []);
+
+  const loadCustomerProfile = useCallback(async (sessionId: string) => {
+    try {
+      const r = await adminFetch<{ success: boolean; data: SupportCustomerProfile }>(
+        `/api/admin/support/sessions/${encodeURIComponent(sessionId)}/customer-profile`,
+      );
+      setCustProfile(r.data);
+      setCustProfileErr(null);
+    } catch (e: unknown) {
+      setCustProfile(null);
+      setCustProfileErr(e instanceof Error ? e.message : '加载失败');
     }
   }, []);
 
@@ -1607,12 +1690,19 @@ export function AdminSupportPage() {
     if (!selId) {
       setMsgs([]);
       lastIdRef.current = '';
+      setCustProfile(null);
+      setCustProfileErr(null);
       return;
     }
     void loadMsgsFull(selId);
+    void loadCustomerProfile(selId);
     const id = window.setInterval(() => void pollAfter(), 2800);
-    return () => clearInterval(id);
-  }, [selId, loadMsgsFull, pollAfter]);
+    const id2 = window.setInterval(() => void loadCustomerProfile(selId), 12000);
+    return () => {
+      clearInterval(id);
+      clearInterval(id2);
+    };
+  }, [selId, loadMsgsFull, pollAfter, loadCustomerProfile]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1674,7 +1764,14 @@ export function AdminSupportPage() {
       <main className="dh-admin-page__content">
         <div className="dh-admin-container">
           {sessErr ? <p className="dh-admin-error">{sessErr}</p> : null}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(0, 2fr)', gap: 16, alignItems: 'stretch' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(200px, 0.9fr) minmax(0, 1.4fr) minmax(240px, 1fr)',
+              gap: 16,
+              alignItems: 'stretch',
+            }}
+          >
             <div className="dh-admin-card" style={{ minHeight: 420 }}>
               <h2 className="dh-admin-h2" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <MessageSquare className="dh-admin-biz-icon" size={18} strokeWidth={1.5} />
@@ -1817,6 +1914,63 @@ export function AdminSupportPage() {
                     </button>
                   </div>
                 </>
+              )}
+            </div>
+
+            <div className="dh-admin-card" style={{ minHeight: 420 }}>
+              <h2 className="dh-admin-h2">客户信息</h2>
+              {!selId ? (
+                <p className="dh-admin-text-muted">选择会话后显示该用户资料</p>
+              ) : custProfileErr ? (
+                <p className="dh-admin-error">{custProfileErr}</p>
+              ) : !custProfile ? (
+                <p className="dh-admin-text-muted">加载中…</p>
+              ) : (
+                <dl style={{ margin: 0, fontSize: 14, lineHeight: 1.7 }}>
+                  <dt className="dh-admin-text-muted" style={{ marginTop: 8 }}>
+                    用户 ID
+                  </dt>
+                  <dd style={{ margin: 0 }}>
+                    <code>{custProfile.userId}</code>
+                  </dd>
+                  <dt className="dh-admin-text-muted" style={{ marginTop: 8 }}>
+                    展示 ID / 客户号
+                  </dt>
+                  <dd style={{ margin: 0 }}>
+                    <code>{custProfile.displayId8 || '—'}</code> / <code>{custProfile.customerNo || '—'}</code>
+                  </dd>
+                  <dt className="dh-admin-text-muted" style={{ marginTop: 8 }}>
+                    最近 IP
+                  </dt>
+                  <dd style={{ margin: 0 }}>
+                    <code>{custProfile.lastIp || '—'}</code>
+                    {custProfile.lastIpAt ? (
+                      <span className="dh-admin-text-muted" style={{ fontSize: 12 }}>
+                        {' '}
+                        · {new Date(custProfile.lastIpAt).toLocaleString('zh-CN')}
+                      </span>
+                    ) : null}
+                  </dd>
+                  <dt className="dh-admin-text-muted" style={{ marginTop: 8 }}>
+                    累计充值
+                  </dt>
+                  <dd style={{ margin: 0 }}>¥{custProfile.totalDeposit.toFixed(2)}</dd>
+                  <dt className="dh-admin-text-muted" style={{ marginTop: 8 }}>
+                    累计提现
+                  </dt>
+                  <dd style={{ margin: 0 }}>¥{custProfile.totalWithdraw.toFixed(2)}</dd>
+                  <dt className="dh-admin-text-muted" style={{ marginTop: 8 }}>
+                    订单总数
+                  </dt>
+                  <dd style={{ margin: 0 }}>{custProfile.orderCount}</dd>
+                  <dt className="dh-admin-text-muted" style={{ marginTop: 8 }}>
+                    累计在线时长
+                  </dt>
+                  <dd style={{ margin: 0 }}>{formatOnlineSeconds(custProfile.onlineSecondsTotal)}</dd>
+                  <p className="dh-admin-text-muted" style={{ marginTop: 14, fontSize: 12 }}>
+                    在线时长按登录后请求间隔估算；充值/提现仅统计账本状态为成功/已完成记录。
+                  </p>
+                </dl>
               )}
             </div>
           </div>

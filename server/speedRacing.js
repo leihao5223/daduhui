@@ -3,6 +3,7 @@
  */
 const crypto = require('crypto');
 const finance = require('./finance');
+const gameRoomFeed = require('./gameRoomFeed');
 
 const CYCLE_SEC = Number(process.env.SPEED_CYCLE_SEC || 75);
 
@@ -234,6 +235,7 @@ async function placeBet(store, userId, body, appendLedgerFn, saveStore, user) {
     balanceAfter: user.balance,
     meta: { betId, period: periodNow },
   });
+  gameRoomFeed.appendBetPair(store, 'speed-racing', user.nickname, userId, periodNow, normalized, total, user.balance);
   saveStore();
   return {
     ok: true,
